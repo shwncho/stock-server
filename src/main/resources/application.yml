@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: kis-stock-llm-analysis
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/stock_analysis?useSSL=false&serverTimezone=UTC
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+
+server:
+  port: 8080
+# KIS API ??
+kis:
+  api:
+    base-url: https://openapi.koreainvestment.com:9443
+    app-key: ${KIS_APP_KEY}
+    app-secret: ${KIS_APP_SECRET}
+    request:
+      connect-timeout: 5000
+      read-timeout: 10000
