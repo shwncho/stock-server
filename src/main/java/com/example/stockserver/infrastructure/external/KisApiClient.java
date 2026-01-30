@@ -9,11 +9,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import okhttp3.*;
+
+import java.time.DayOfWeek;
 import java.time.Instant;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -44,6 +47,7 @@ public class KisApiClient {
      */
     public List<VolumeRankDto> getVolumeRankStocks() {
         String endpoint = "/uapi/domestic-stock/v1/quotations/volume-rank";
+        String trId = "FHPST01710000";
 
         Map<String, String> params = new HashMap<>();
         params.put("FID_COND_MRKT_DIV_CODE", "J");
@@ -60,7 +64,7 @@ public class KisApiClient {
 
         try {
             String queryString = buildQueryString(params);
-            Map<String, Object> response = callApi("GET", endpoint, queryString, null);
+            Map<String, Object> response = callApi("GET", endpoint, queryString, trId);
 
             List<VolumeRankDto> results = new ArrayList<>();
             if (response.containsKey("output")) {
@@ -98,43 +102,50 @@ public class KisApiClient {
      */
     public List<DailyPriceDto> getDailyData(String stockCode, int days) {
         String endpoint = "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice";
+        String trId = "FHKST03010100";
+
+        LocalDate endDate = getLastTradingDate();          // FID_INPUT_DATE_2
+        LocalDate startDate = endDate.minusDays(days - 1); // FID_INPUT_DATE_1
 
         Map<String, String> params = new HashMap<>();
         params.put("FID_COND_MRKT_DIV_CODE", "J");
         params.put("FID_INPUT_ISCD", stockCode);
-        params.put("FID_INPUT_DATE_1", LocalDate.now().minusDays(days).toString().replace("-", ""));
-        params.put("FID_INPUT_DATE_2", LocalDate.now().toString().replace("-", ""));
+        params.put("FID_INPUT_DATE_1",
+                startDate.format(DateTimeFormatter.BASIC_ISO_DATE));
+        params.put("FID_INPUT_DATE_2",
+                endDate.format(DateTimeFormatter.BASIC_ISO_DATE));
         params.put("FID_PERIOD_DIV_CODE", "D");
         params.put("FID_ORG_ADJ_PRC", "0");
-        params.put("FID_ADJ_PRC_APLY_CD", "1");
 
         try {
             String queryString = buildQueryString(params);
-            Map<String, Object> response = callApi("GET", endpoint, queryString, null);
+            Map<String, Object> response = callApi("GET", endpoint, queryString, trId);
 
             List<DailyPriceDto> results = new ArrayList<>();
+
             if (response.containsKey("output2")) {
-                List<Map<String, Object>> output = (List<Map<String, Object>>) response.get("output2");
+                List<Map<String, Object>> output =
+                        (List<Map<String, Object>>) response.get("output2");
 
-                output.forEach(item -> {
-                    String dateStr = (String) item.get("candle_date_time_kst");
-                    LocalDate tradeDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
+                for (Map<String, Object> item : output) {
+                    LocalDate tradeDate = LocalDate.parse(
+                            (String) item.get("stck_bsop_date"),
+                            DateTimeFormatter.BASIC_ISO_DATE
+                    );
 
-                    DailyPriceDto daily = DailyPriceDto.builder()
+                    results.add(DailyPriceDto.builder()
                             .stockCode(stockCode)
                             .tradeDate(tradeDate)
-                            .openPrice(Double.parseDouble((String) item.get("opening_price")))
+                            .openPrice(Double.parseDouble((String) item.get("stck_oprc")))
                             .closePrice(Double.parseDouble((String) item.get("stck_clpr")))
-                            .highPrice(Double.parseDouble((String) item.get("high_price")))
-                            .lowPrice(Double.parseDouble((String) item.get("low_price")))
-                            .volume(Long.parseLong((String) item.get("cntg_vol")))
-                            .build();
-
-                    results.add(daily);
-                });
+                            .highPrice(Double.parseDouble((String) item.get("stck_hgpr")))
+                            .lowPrice(Double.parseDouble((String) item.get("stck_lwpr")))
+                            .volume(Long.parseLong((String) item.get("acml_vol")))
+                            .build());
+                }
             }
 
-            log.debug("일봉 데이터 조회: stockCode={}", stockCode);
+            log.info("일봉 조회 성공: {} ~ {}", startDate, endDate);
             return results;
 
         } catch (Exception e) {
@@ -143,8 +154,26 @@ public class KisApiClient {
         }
     }
 
+    private LocalDate getLastTradingDate() {
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+
+        // 장중이면 오늘 봉은 미확정
+        if (now.isBefore(LocalTime.of(15, 30))) {
+            today = today.minusDays(1);
+        }
+
+        // 주말 보정
+        while (today.getDayOfWeek() == DayOfWeek.SATURDAY
+                || today.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            today = today.minusDays(1);
+        }
+
+        return today;
+    }
+
     private Map<String, Object> callApi(String method, String endpoint,
-                                        String queryString, Map<String, Object> body)
+                                        String queryString, String trId)
             throws Exception {
 
         String fullUrl = queryString != null && !queryString.isEmpty()
@@ -159,7 +188,7 @@ public class KisApiClient {
                     .header("Authorization", "Bearer " + accessToken)
                     .header("appkey", appKey)
                     .header("appsecret", appSecret)
-                    .header("tr_id", "FHPST01710000")
+                    .header("tr_id", trId)
                     .header("custtype", "P")
                     .retrieve()
                     .bodyToMono(String.class)
