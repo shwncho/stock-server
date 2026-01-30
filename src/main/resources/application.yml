@@ -48,7 +48,7 @@ llm:
 # ?? ??
 analysis:
   top-stocks: 10
-  days-back: 60
+  days-back: 1
 
 logging:
   level:
