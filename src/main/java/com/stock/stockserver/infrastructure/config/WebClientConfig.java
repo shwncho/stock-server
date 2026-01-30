@@ -1,4 +1,4 @@
-package com.example.stockserver.infrastructure.config;
+package com.stock.stockserver.infrastructure.config;
 
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;

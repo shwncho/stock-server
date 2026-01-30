@@ -1,4 +1,4 @@
-package com.example.stockserver;
+package com.stock.stockserver;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

@@ -1,7 +1,7 @@
-package com.example.stockserver.infrastructure.external;
+package com.stock.stockserver.infrastructure.external;
 
-import com.example.stockserver.dto.DailyPriceDto;
-import com.example.stockserver.dto.VolumeRankDto;
+import com.stock.stockserver.dto.DailyPriceDto;
+import com.stock.stockserver.dto.VolumeRankDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

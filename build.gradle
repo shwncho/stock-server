@@ -26,6 +26,8 @@ dependencies {
 
 
     implementation 'com.squareup.okhttp3:okhttp:4.9.1'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
 
     // Database
     runtimeOnly 'com.mysql:mysql-connector-j:8.0.33'

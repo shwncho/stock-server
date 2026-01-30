@@ -1,4 +1,4 @@
-package com.example.stockserver.dto;
+package com.stock.stockserver.dto;
 
 import lombok.Builder;
 

@@ -7,7 +7,13 @@ spring:
     username: root
     password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
-
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+    show-sql: false
 
 server:
   port: 8080
@@ -20,3 +26,31 @@ kis:
     request:
       connect-timeout: 5000
       read-timeout: 10000
+
+# LLM API ??
+llm:
+  # claude ?? gpt ??
+  provider: gpt
+
+  # Claude API
+  claude:
+    api-key: ${CLAUDE_API_KEY}
+    model: claude-3-5-sonnet-20241022
+    max-tokens: 2000
+
+  # OpenAI API
+  gpt:
+    api-key: ${OPENAI_API_KEY}
+    model: gpt-4o-mini
+    max-tokens: 2000
+
+
+# ?? ??
+analysis:
+  top-stocks: 10
+  days-back: 60
+
+logging:
+  level:
+    root: INFO
+    com.stock: DEBUG
