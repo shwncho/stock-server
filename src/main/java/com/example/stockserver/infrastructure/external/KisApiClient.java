@@ -48,16 +48,15 @@ public class KisApiClient {
         Map<String, String> params = new HashMap<>();
         params.put("FID_COND_MRKT_DIV_CODE", "J");
         params.put("FID_COND_SCR_DIV_CODE", "20171");
-        params.put("FID_INPUT_DATE_1", LocalDate.now().toString().replace("-", ""));
-        params.put("FID_INPUT_DATE_2", LocalDate.now().toString().replace("-", ""));
+        params.put("FID_INPUT_ISCD", "0002");
         params.put("FID_DIV_CLS_CODE", "0");
-        params.put("FID_BLUD_DIV_CODE", "0");
-        params.put("FID_RSFL_CLS_CODE", "0");
-        params.put("FID_CPS_EPS_DVS_CODE", "0");
-        params.put("FID_ITEM_CONT_NXT_PG_KEY", "");
-        params.put("FID_PRC_CLSF_CODE", "0");
-        params.put("FID_SORT_CLSF_CODE", "1");
-        params.put("FID_INPUT_HOUR_1", "");
+        params.put("FID_BLNG_CLS_CODE", "0");
+        params.put("FID_TRGT_CLS_CODE", "111111111");
+        params.put("FID_TRGT_EXLS_CLS_CODE", "000000");
+        params.put("FID_INPUT_PRICE_1", "0");
+        params.put("FID_INPUT_PRICE_2", "0");
+        params.put("FID_VOL_CNT", "0");
+        params.put("FID_INPUT_DATE_1", "0");
 
         try {
             String queryString = buildQueryString(params);
