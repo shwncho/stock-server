@@ -105,6 +105,6 @@ public class StockAnalysisService {
      * 최근 분석 결과 조회
      */
     public List<LLMAnalysisResult> getLatestAnalysis() {
-        return analysisResultRepository.findByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
+        return analysisResultRepository.findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
     }
 }

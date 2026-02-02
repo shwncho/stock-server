@@ -11,6 +11,6 @@ import java.util.Optional;
 public interface LLMAnalysisResultRepository extends JpaRepository<LLMAnalysisResult, Long> {
     Optional<LLMAnalysisResult> findByStockCodeAndAnalysisDate(String stockCode, LocalDate analysisDate);
 
-    List<LLMAnalysisResult> findByAnalysisDateOrderByCreatedAtDesc(LocalDate analysisDate);
+    List<LLMAnalysisResult> findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate analysisDate);
 }
 

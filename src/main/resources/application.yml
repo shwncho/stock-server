@@ -13,7 +13,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-    show-sql: false
+    show-sql: true
 
 server:
   port: 8080
@@ -48,7 +48,7 @@ llm:
 # ?? ??
 analysis:
   top-stocks: 10
-  days-back: 1
+  days-back: 60
 
 logging:
   level:
