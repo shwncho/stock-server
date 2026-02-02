@@ -1,11 +1,15 @@
 package com.stock.stockserver.application;
 
+import com.stock.stockserver.domain.AnalysisJob;
+import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
+import com.stock.stockserver.domain.repository.AnalysisJobStore;
 import com.stock.stockserver.domain.repository.LLMAnalysisResultRepository;
 import com.stock.stockserver.dto.StockDataDto;
 import com.stock.stockserver.infrastructure.external.LLMApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +25,28 @@ public class StockAnalysisService {
     private final StockDataCollectionService dataCollectionService;
     private final LLMApiClient llmApiClient;
     private final LLMAnalysisResultRepository analysisResultRepository;
+    private final AnalysisJobStore jobStore;
+
+    @Async
+    @Transactional
+    public void runFullAnalysisAsync(String analysisId) {
+        try {
+            List<LLMAnalysisResult> results = runFullAnalysis();
+            jobStore.save(new AnalysisJob(
+                    analysisId,
+                    AnalysisStatus.DONE,
+                    results,
+                    null
+            ));
+        } catch (Exception e) {
+            jobStore.save(new AnalysisJob(
+                    analysisId,
+                    AnalysisStatus.FAILED,
+                    null,
+                    e.getMessage()
+            ));
+        }
+    }
 
     /**
      * 전체 분석 프로세스 실행
@@ -106,5 +132,18 @@ public class StockAnalysisService {
      */
     public List<LLMAnalysisResult> getLatestAnalysis() {
         return analysisResultRepository.findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
+    }
+
+    public void saveJob(String analysisId) {
+        jobStore.save(new AnalysisJob(
+                analysisId,
+                AnalysisStatus.RUNNING,
+                null,
+                null)
+        );
+    }
+
+    public AnalysisJob getAnalysisJob(String analysisId) {
+        return jobStore.get(analysisId);
     }
 }

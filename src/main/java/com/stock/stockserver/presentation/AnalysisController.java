@@ -1,13 +1,19 @@
 package com.stock.stockserver.presentation;
 
 import com.stock.stockserver.application.StockAnalysisService;
+import com.stock.stockserver.domain.AnalysisJob;
+import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
+import com.stock.stockserver.dto.AnalysisStatusDto;
+import com.stock.stockserver.dto.PostAnalysisDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/analysis")
@@ -21,10 +27,48 @@ public class AnalysisController {
      * 분석 실행
      */
     @PostMapping("/run")
-    public ResponseEntity<List<LLMAnalysisResult>> runAnalysis() {
-        log.info("분석 실행 요청");
-        List<LLMAnalysisResult> results = analysisService.runFullAnalysis();
-        return ResponseEntity.ok(results);
+    public ResponseEntity<PostAnalysisDto> runAnalysis() {
+        String analysisId = UUID.randomUUID().toString();
+
+        analysisService.saveJob(analysisId);
+
+        analysisService.runFullAnalysisAsync(analysisId);
+
+        return ResponseEntity.ok(
+                new PostAnalysisDto(
+                    analysisId,
+                    AnalysisStatus.RUNNING
+                )
+        );
+
+    }
+
+    @GetMapping("/status/{analysisId}")
+    public ResponseEntity<AnalysisStatusDto> getStatus(@PathVariable String analysisId) {
+        AnalysisJob job = analysisService.getAnalysisJob(analysisId);
+        if (job == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(
+                new AnalysisStatusDto(
+                        job.getStatus()
+                )
+        );
+    }
+
+    @GetMapping("/result/{analysisId}")
+    public ResponseEntity<?> getResult(@PathVariable String analysisId) {
+        AnalysisJob job = analysisService.getAnalysisJob(analysisId);
+
+        if (job == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (job.getStatus() != AnalysisStatus.DONE) {
+            return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+        }
+
+        return ResponseEntity.ok(job.getResults());
     }
 
     /**
