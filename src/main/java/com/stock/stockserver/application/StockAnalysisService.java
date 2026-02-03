@@ -5,6 +5,7 @@ import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.domain.repository.AnalysisJobStore;
 import com.stock.stockserver.domain.repository.LLMAnalysisResultRepository;
+import com.stock.stockserver.dto.AnalysisResultDto;
 import com.stock.stockserver.dto.StockDataDto;
 import com.stock.stockserver.infrastructure.external.LLMApiClient;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -130,8 +132,11 @@ public class StockAnalysisService {
     /**
      * 최근 분석 결과 조회
      */
-    public List<LLMAnalysisResult> getLatestAnalysis() {
-        return analysisResultRepository.findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
+    public List<AnalysisResultDto> getLatestAnalysis() {
+        List<LLMAnalysisResult> results = analysisResultRepository.findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
+        return results.stream()
+                .map(AnalysisResultDto::from)
+                .toList();
     }
 
     public void saveJob(String analysisId) {

@@ -4,6 +4,7 @@ import com.stock.stockserver.application.StockAnalysisService;
 import com.stock.stockserver.domain.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
+import com.stock.stockserver.dto.AnalysisResultDto;
 import com.stock.stockserver.dto.AnalysisStatusDto;
 import com.stock.stockserver.dto.PostAnalysisDto;
 import lombok.RequiredArgsConstructor;
@@ -57,7 +58,7 @@ public class AnalysisController {
     }
 
     @GetMapping("/result/{analysisId}")
-    public ResponseEntity<?> getResult(@PathVariable String analysisId) {
+    public ResponseEntity<List<AnalysisResultDto>> getResult(@PathVariable String analysisId) {
         AnalysisJob job = analysisService.getAnalysisJob(analysisId);
 
         if (job == null) {
@@ -68,15 +69,19 @@ public class AnalysisController {
             return ResponseEntity.status(HttpStatus.ACCEPTED).build();
         }
 
-        return ResponseEntity.ok(job.getResults());
+        return ResponseEntity.ok(
+                job.getResults().stream()
+                        .map(AnalysisResultDto::from)
+                        .toList()
+        );
     }
 
     /**
      * 최근 분석 결과 조회
      */
     @GetMapping("/latest")
-    public ResponseEntity<List<LLMAnalysisResult>> getLatestAnalysis() {
-        List<LLMAnalysisResult> results = analysisService.getLatestAnalysis();
+    public ResponseEntity<List<AnalysisResultDto>> getLatestAnalysis() {
+        List<AnalysisResultDto> results = analysisService.getLatestAnalysis();
         return ResponseEntity.ok(results);
     }
 }
