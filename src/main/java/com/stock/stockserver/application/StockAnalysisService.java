@@ -30,7 +30,6 @@ public class StockAnalysisService {
     private final AnalysisJobStore jobStore;
 
     @Async
-    @Transactional
     public void runFullAnalysisAsync(String analysisId) {
         try {
             List<LLMAnalysisResult> results = runFullAnalysis();
