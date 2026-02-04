@@ -20,6 +20,9 @@ public class StockController {
         return kisApiClient.getVolumeRankStocks();
     }
 
+    /**
+     * 현재 테스트용 api, 나중에 사용할 시 stockCode와 days를 파라미터로 받아야함
+     */
     @GetMapping("/daily-price")
     public List<DailyPriceDto> getPriceChart() {
         return kisApiClient.getDailyData("000660",10);

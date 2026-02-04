@@ -38,6 +38,9 @@ dependencies {
 
     // JSON
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    
+    // Retry
+    implementation 'org.springframework.retry:spring-retry:2.0.4'
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

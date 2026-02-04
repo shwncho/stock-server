@@ -9,7 +9,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.*;
 
 @Component
@@ -111,6 +113,13 @@ public class LLMApiClient {
                     .bodyValue(request)
                     .retrieve()
                     .bodyToMono(String.class)
+                    .timeout(Duration.ofSeconds(45)) // GPT API 타임아웃 45초
+                    .retryWhen(Retry.backoff(2, Duration.ofSeconds(2)) // 실패 시 재시도
+                            .maxBackoff(Duration.ofSeconds(10))
+                            .doBeforeRetry(retrySignal -> 
+                                log.warn("GPT API 재시도: {} - 시도 {}/{}", 
+                                    stockData.stockCode(), 
+                                    retrySignal.totalRetries() + 1, 2)))
                     .block();
 
             Map<String, Object> response = objectMapper.readValue(responseBody, Map.class);

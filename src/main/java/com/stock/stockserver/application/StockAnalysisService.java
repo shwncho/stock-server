@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,47 +52,58 @@ public class StockAnalysisService {
     }
 
     /**
-     * 전체 분석 프로세스 실행
+     * 전체 분석 프로세스 실행 (병렬 처리)
      */
     @Transactional
     public List<LLMAnalysisResult> runFullAnalysis() {
         log.info("\n");
         log.info("=====================================");
-        log.info("  KIS Stock Analysis with LLM");
+        log.info("  KIS Stock Analysis with LLM (병렬)");
         log.info("=====================================\n");
 
-        // 1단계: 데이터 수집
+        // 1단계: 데이터 수집 (병렬 처리 포함)
         List<StockDataDto> stockDataList = dataCollectionService.collectStockData();
 
-        // 2단계: LLM 분석
-        List<LLMAnalysisResult> results = new ArrayList<>();
+        // 2단계: LLM 분석 (제한된 병렬 처리)
+        List<CompletableFuture<LLMAnalysisResult>> futures = stockDataList.stream()
+                .map(stockData -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        log.info("LLM 분석 요청: {} ({})", stockData.stockName(), stockData.stockCode());
 
-        for (StockDataDto stockData : stockDataList) {
-            try {
-                log.info("LLM 분석 요청: {} ({})", stockData.stockName(), stockData.stockCode());
+                        String analysis = llmApiClient.analyzeStock(stockData);
 
-                String analysis = llmApiClient.analyzeStock(stockData);
+                        if (analysis != null) {
+                            LLMAnalysisResult result = LLMAnalysisResult.builder()
+                                    .stockCode(stockData.stockCode())
+                                    .stockName(stockData.stockName())
+                                    .analysisDate(LocalDate.now())
+                                    .llmAnalysis(analysis)
+                                    .recommendation(extractRecommendation(analysis))
+                                    .build();
 
-                if (analysis != null) {
-                    LLMAnalysisResult result = LLMAnalysisResult.builder()
-                            .stockCode(stockData.stockCode())
-                            .stockName(stockData.stockName())
-                            .analysisDate(LocalDate.now())
-                            .llmAnalysis(analysis)
-                            .recommendation(extractRecommendation(analysis))
-                            .build();
+                            log.info("분석 완료: {}", stockData.stockCode());
+                            return result;
+                        }
+                    } catch (Exception e) {
+                        log.error("LLM 분석 실패: {}", stockData.stockCode(), e);
+                    }
+                    return null;
+                }))
+                .collect(Collectors.toList());
 
-                    analysisResultRepository.save(result);
-                    results.add(result);
+        // 모든 병렬 작업 완료 대기 및 결과 수집
+        List<LLMAnalysisResult> results = futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-                    log.info("분석 완료: {}", stockData.stockCode());
-                }
-            } catch (Exception e) {
-                log.error("LLM 분석 실패: {}", stockData.stockCode(), e);
-            }
+        // 3단계: DB 배치 저장
+        if (!results.isEmpty()) {
+            analysisResultRepository.saveAll(results);
+            log.info("DB 배치 저장 완료: {} 개", results.size());
         }
 
-        // 3단계: 결과 출력
+        // 4단계: 결과 출력
         generateReport(results);
 
         return results;

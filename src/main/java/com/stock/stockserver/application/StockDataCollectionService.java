@@ -12,12 +12,14 @@ import com.stock.stockserver.infrastructure.external.KisApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,29 +36,33 @@ public class StockDataCollectionService {
     private int daysBack;
 
     /**
-     * 거래량 Top 10 종목의 데이터 수집
+     * 거래량 Top 10 종목의 데이터 수집 (병렬 처리)
      */
     @Transactional
     public List<StockDataDto> collectStockData() {
-        log.info("=== 주식 데이터 수집 시작 ===");
+        log.info("=== 주식 데이터 수집 시작 (병렬 처리) ===");
 
         // 1단계: 거래량 Top 10 조회
         List<VolumeRankDto> topStocks = kisApiClient.getVolumeRankStocks();
         log.info("Step 1: 거래량 Top 10 조회 완료 - {} 개", topStocks.size());
 
-        List<StockDataDto> stockDataList = new ArrayList<>();
+        // 2단계: 각 종목별 데이터 수집 (병렬 처리)
+        List<CompletableFuture<StockDataDto>> futures = topStocks.stream()
+                .map(volumeRank -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return collectSingleStockData(volumeRank);
+                    } catch (Exception e) {
+                        log.error("데이터 수집 실패: {}", volumeRank.stockCode(), e);
+                        return null;
+                    }
+                }))
+                .collect(Collectors.toList());
 
-        // 2단계: 각 종목별 데이터 수집
-        for (VolumeRankDto volumeRank : topStocks) {
-            try {
-                StockDataDto stockData = collectSingleStockData(volumeRank);
-                if (stockData != null) {
-                    stockDataList.add(stockData);
-                }
-            } catch (Exception e) {
-                log.error("데이터 수집 실패: {}", volumeRank.stockCode(), e);
-            }
-        }
+        // 모든 병렬 작업 완료 대기 및 결과 수집
+        List<StockDataDto> stockDataList = futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
         log.info("Step 2: 데이터 수집 완료 - {} 개", stockDataList.size());
         log.info("=== 주식 데이터 수집 완료 ===\n");
