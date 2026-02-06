@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,8 +31,8 @@ public class StockAnalysisService {
     private final LLMApiClient llmApiClient;
     private final LLMAnalysisResultRepository analysisResultRepository;
     private final AnalysisJobStore jobStore;
+    private final Executor llmApiExecutor;
 
-    @Async
     public void runFullAnalysisAsync(String analysisId) {
         try {
             List<LLMAnalysisResult> results = runFullAnalysis();
@@ -88,7 +89,7 @@ public class StockAnalysisService {
                         log.error("LLM 분석 실패: {}", stockData.stockCode(), e);
                     }
                     return null;
-                }))
+                }, llmApiExecutor))
                 .collect(Collectors.toList());
 
         // 모든 병렬 작업 완료 대기 및 결과 수집

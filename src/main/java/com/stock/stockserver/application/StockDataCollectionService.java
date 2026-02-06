@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +32,7 @@ public class StockDataCollectionService {
     private final StockDataRepository stockDataRepository;
     private final DailyPriceRepository dailyPriceRepository;
     private final ObjectMapper objectMapper;
+    private final Executor kisApiExecutor;
 
     @Value("${analysis.days-back}")
     private int daysBack;
@@ -55,7 +57,7 @@ public class StockDataCollectionService {
                         log.error("데이터 수집 실패: {}", volumeRank.stockCode(), e);
                         return null;
                     }
-                }))
+                }, kisApiExecutor))
                 .collect(Collectors.toList());
 
         // 모든 병렬 작업 완료 대기 및 결과 수집
