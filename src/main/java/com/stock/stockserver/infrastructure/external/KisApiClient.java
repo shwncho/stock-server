@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import okhttp3.*;
@@ -45,6 +46,7 @@ public class KisApiClient {
     /**
      * 거래량 순위 조회 (Top 10)
      */
+    @Cacheable(cacheNames = "kisVolumeRankCache")
     public List<VolumeRankDto> getVolumeRankStocks() {
         String endpoint = "/uapi/domestic-stock/v1/quotations/volume-rank";
         String trId = "FHPST01710000";
@@ -100,6 +102,7 @@ public class KisApiClient {
     /**
      * 일봉 데이터 조회
      */
+    @Cacheable(cacheNames = "kisDailyCache", key = "#stockCode + ':' + #days")
     public List<DailyPriceDto> getDailyData(String stockCode, int days) {
         String endpoint = "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice";
         String trId = "FHKST03010100";

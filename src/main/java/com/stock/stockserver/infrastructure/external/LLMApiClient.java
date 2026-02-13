@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -40,6 +41,11 @@ public class LLMApiClient {
     /**
      * LLM에 주식 분석 요청
      */
+    @Cacheable(
+            cacheNames = "llmAnalysisCache",
+            key = "#stockData.stockCode()",
+            unless = "#result == null"
+    )
     public String analyzeStock(StockDataDto stockData) {
         if ("claude".equalsIgnoreCase(provider)) {
             return analyzeWithClaude(stockData);
