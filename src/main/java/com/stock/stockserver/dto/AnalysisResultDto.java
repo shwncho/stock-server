@@ -1,7 +1,7 @@
 package com.stock.stockserver.dto;
 
+import com.stock.stockserver.domain.RecommendationStatus;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
-import jakarta.persistence.Column;
 
 import java.time.LocalDate;
 
@@ -10,7 +10,7 @@ public record AnalysisResultDto(
         String stockName,
         LocalDate analysisDate,
         String llmAnalysis,
-        String recommendation
+        RecommendationStatus recommendation
 ) {
 
     public static AnalysisResultDto from(LLMAnalysisResult llmAnalysisResult) {

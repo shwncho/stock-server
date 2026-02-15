@@ -1,5 +1,6 @@
 package com.stock.stockserver.domain.entity;
 
+import com.stock.stockserver.domain.RecommendationStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -30,16 +31,20 @@ public class LLMAnalysisResult {
     @Column(columnDefinition = "LONGTEXT")
     private String llmAnalysis;
 
-    // 추천 (LLM이 텍스트로 생성)
-    @Column(length = 500)
-    private String recommendation;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private RecommendationStatus recommendation;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    private LLMAnalysisResult(String stockCode, String stockName, LocalDate analysisDate,
-                              String llmAnalysis, String recommendation) {
+    private LLMAnalysisResult(String stockCode,
+                              String stockName,
+                              LocalDate analysisDate,
+                              String llmAnalysis,
+                              RecommendationStatus recommendation) {
+
         this.stockCode = stockCode;
         this.stockName = stockName;
         this.analysisDate = analysisDate;

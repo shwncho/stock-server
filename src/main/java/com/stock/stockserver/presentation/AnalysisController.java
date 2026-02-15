@@ -3,7 +3,6 @@ package com.stock.stockserver.presentation;
 import com.stock.stockserver.application.StockAnalysisService;
 import com.stock.stockserver.domain.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
-import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.dto.AnalysisResultDto;
 import com.stock.stockserver.dto.AnalysisStatusDto;
 import com.stock.stockserver.dto.PostAnalysisDto;

@@ -6,6 +6,7 @@ import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.domain.repository.AnalysisJobStore;
 import com.stock.stockserver.domain.repository.LLMAnalysisResultRepository;
 import com.stock.stockserver.dto.AnalysisResultDto;
+import com.stock.stockserver.dto.LLMAnalysisResponseDto;
 import com.stock.stockserver.dto.StockDataDto;
 import com.stock.stockserver.infrastructure.external.LLMApiClient;
 import lombok.RequiredArgsConstructor;
@@ -69,18 +70,18 @@ public class StockAnalysisService {
                     try {
                         log.info("LLM 분석 요청: {} ({})", stockData.stockName(), stockData.stockCode());
 
-                        String analysis = llmApiClient.analyzeStock(stockData);
+                        LLMAnalysisResponseDto analysisResponse = llmApiClient.analyzeStock(stockData);
 
-                        if (analysis != null) {
+                        if (analysisResponse != null) {
                             LLMAnalysisResult result = LLMAnalysisResult.builder()
                                     .stockCode(stockData.stockCode())
                                     .stockName(stockData.stockName())
                                     .analysisDate(LocalDate.now())
-                                    .llmAnalysis(analysis)
-                                    .recommendation(extractRecommendation(analysis))
+                                    .llmAnalysis(removeJsonBlock(analysisResponse.fullAnalysis()))
+                                    .recommendation(analysisResponse.recommendation())
                                     .build();
+                            log.info("분석 완료: {} ", stockData.stockCode());
 
-                            log.info("분석 완료: {}", stockData.stockCode());
                             return result;
                         }
                     } catch (Exception e) {
@@ -108,17 +109,19 @@ public class StockAnalysisService {
         return results;
     }
 
-    /**
-     * 분석 결과에서 추천 추출
-     */
-    private String extractRecommendation(String analysis) {
-        if (analysis.contains("매수") || analysis.contains("BUY")) {
-            return "BUY";
-        } else if (analysis.contains("매도") || analysis.contains("SELL")) {
-            return "SELL";
-        } else {
-            return "HOLD";
+    private String removeJsonBlock(String fullText) {
+        int start = fullText.indexOf("```json");
+        if (start == -1) {
+            return fullText;
         }
+
+        int end = fullText.indexOf("```", start + 6);
+        if (end == -1) {
+            return fullText;
+        }
+
+        // json 코드블록 전체 제거
+        return (fullText.substring(0, start) + fullText.substring(end + 3)).trim();
     }
 
     /**

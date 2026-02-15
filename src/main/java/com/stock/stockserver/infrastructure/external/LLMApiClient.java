@@ -1,5 +1,6 @@
 package com.stock.stockserver.infrastructure.external;
 
+import com.stock.stockserver.dto.LLMAnalysisResponseDto;
 import com.stock.stockserver.dto.StockDataDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -46,15 +47,24 @@ public class LLMApiClient {
             key = "#stockData.stockCode()",
             unless = "#result == null"
     )
-    public String analyzeStock(StockDataDto stockData) {
+    public LLMAnalysisResponseDto analyzeStock(StockDataDto stockData) {
+
+        String analysisText;
+
         if ("claude".equalsIgnoreCase(provider)) {
-            return analyzeWithClaude(stockData);
+            analysisText = analyzeWithClaude(stockData);
         } else if ("gpt".equalsIgnoreCase(provider)) {
-            return analyzeWithGPT(stockData);
+            analysisText = analyzeWithGPT(stockData);
         } else {
             log.error("알 수 없는 LLM provider: {}", provider);
             return null;
         }
+
+        if (analysisText == null) {
+            return null;
+        }
+
+        return parseLLMResponse(analysisText);
     }
 
     /**
@@ -153,35 +163,49 @@ public class LLMApiClient {
     private String buildAnalysisPrompt(StockDataDto stockData) {
         return String.format(
                 """
-                다음은 한국 주식 시장의 거래량 상위 종목 중 하나의 데이터입니다. \
+                다음은 한국 주식 시장의 거래량 상위 종목 중 하나의 데이터입니다.
                 기술적 분석을 통해 투자 의견을 제시해주세요.
-                
+    
                 [종목 정보]
                 종목명: %s
                 종목코드: %s
-                
+    
                 [현재 시세 정보]
                 현재가: %,.0f원
                 변동률: %+.2f%%
                 거래량: %,d주
                 거래대금: %,d원
-                
+    
                 [52주 가격 범위]
                 52주 최고가: %,.0f원
                 52주 최저가: %,.0f원
                 현재 가격 수준: %.2f%% (52주 최저가 대비)
-                
+    
                 [최근 60일 일봉 데이터]
                 %s
-                
+    
                 [분석 요청사항]
                 1. 위 데이터를 기반으로 기술적 분석 (추세, 지지선/저항선 등)
                 2. 거래량 분석 (거래량 패턴 및 의미)
                 3. 가격 변동 패턴 분석
                 4. 투자 의견 제시 (매수/매도/보유)
                 5. 투자 근거 및 주의사항
-                
-                상세하고 전문적인 분석을 부탁드립니다.
+    
+                -----------------------
+                [출력 규칙]
+                반드시 마지막에 아래 JSON을 출력하세요.
+                JSON은 반드시 ```json 코드블록으로 감싸야 합니다.
+                recommendation 값은 BUY, SELL, HOLD 중 하나만 가능합니다.
+    
+                ```json
+                {
+                  "recommendation": "BUY|SELL|HOLD",
+                  "confidence": 0.0,
+                  "summary": "한 줄 요약"
+                }
+                ```
+    
+                위 JSON 외에는 recommendation을 명시하지 마세요.
                 """,
                 stockData.stockName(),
                 stockData.stockCode(),
@@ -233,5 +257,52 @@ public class LLMApiClient {
             log.error("일봉 데이터 포맷팅 실패", e);
             return dailyPricesJson;
         }
+    }
+
+
+    private LLMAnalysisResponseDto parseLLMResponse(String fullText) {
+        try {
+            String json = extractJsonBlock(fullText);
+
+            Map<String, Object> map = objectMapper.readValue(json, Map.class);
+
+            String recommendationStr = ((String) map.get("recommendation")).toUpperCase();
+            Double confidence = (Double) map.getOrDefault("confidence", 0);
+            String summary = (String) map.getOrDefault("summary", "");
+
+            return LLMAnalysisResponseDto.builder()
+                    .recommendation(Enum.valueOf(com.stock.stockserver.domain.RecommendationStatus.class, recommendationStr))
+                    .confidence(confidence)
+                    .summary(summary)
+                    .fullAnalysis(fullText)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("LLM 응답 JSON 파싱 실패. fullText={}", fullText, e);
+
+            // 파싱 실패 시 HOLD 처리
+            return LLMAnalysisResponseDto.builder()
+                    .recommendation(com.stock.stockserver.domain.RecommendationStatus.HOLD)
+                    .confidence(0.0)
+                    .summary("LLM 응답 파싱 실패")
+                    .fullAnalysis(fullText)
+                    .build();
+        }
+    }
+
+    private String extractJsonBlock(String fullText) {
+        int start = fullText.indexOf("```json");
+        if (start == -1) {
+            throw new IllegalStateException("json code block not found");
+        }
+
+        int jsonStart = fullText.indexOf("{", start);
+        int end = fullText.indexOf("```", jsonStart);
+
+        if (jsonStart == -1 || end == -1) {
+            throw new IllegalStateException("invalid json code block format");
+        }
+
+        return fullText.substring(jsonStart, end).trim();
     }
 }
