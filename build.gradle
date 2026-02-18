@@ -45,6 +45,9 @@ dependencies {
     // Retry
     implementation 'org.springframework.retry:spring-retry:2.0.4'
 
+    // Kafka
+    implementation 'org.springframework.kafka:spring-kafka'
+
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

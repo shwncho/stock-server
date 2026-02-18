@@ -2,6 +2,27 @@ spring:
   application:
     name: kis-stock-llm-analysis
 
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+
+    consumer:
+      group-id: stock-analysis-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+    listener:
+      ack-mode: manual
+
   datasource:
     url: jdbc:mysql://localhost:3306/stock_analysis?useSSL=false&serverTimezone=UTC
     username: root

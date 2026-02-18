@@ -11,7 +11,6 @@ import com.stock.stockserver.dto.StockDataDto;
 import com.stock.stockserver.infrastructure.external.LLMApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,10 +32,9 @@ public class StockAnalysisService {
     private final AnalysisJobStore jobStore;
     private final Executor llmApiExecutor;
 
-    @Async
-    public void runFullAnalysisAsync(String analysisId) {
+    public void runFullAnalysis(String analysisId) {
         try {
-            List<LLMAnalysisResult> results = runFullAnalysis();
+            List<LLMAnalysisResult> results = runFullAnalysisInternal();
             jobStore.save(new AnalysisJob(
                     analysisId,
                     AnalysisStatus.DONE,
@@ -57,7 +55,7 @@ public class StockAnalysisService {
      * 전체 분석 프로세스 실행 (병렬 처리)
      */
     @Transactional
-    public List<LLMAnalysisResult> runFullAnalysis() {
+    public List<LLMAnalysisResult> runFullAnalysisInternal() {
         log.info("\n");
         log.info("=====================================");
         log.info("  KIS Stock Analysis with LLM (병렬)");
