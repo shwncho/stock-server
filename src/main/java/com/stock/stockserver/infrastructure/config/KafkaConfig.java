@@ -1,8 +1,10 @@
 package com.stock.stockserver.infrastructure.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +16,7 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -21,6 +24,7 @@ import java.util.Map;
 
 @Configuration
 @EnableKafka
+@Slf4j
 public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
@@ -38,13 +42,21 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic analysisDltTopic() {
+        return TopicBuilder.name("analysis-requests.DLT")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public ProducerFactory<String, String> producerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
-        configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
+        configProps.put(ProducerConfig.RETRIES_CONFIG, 0);
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
@@ -66,12 +78,28 @@ public class KafkaConfig {
     }
 
     @Bean
+    public DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(KafkaTemplate<String, String> kafkaTemplate) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (record, ex) -> {
+                    log.error("DLQ로 메시지 전송: topic={}, key={}, error={}", 
+                            record.topic(), record.key(), ex.getMessage());
+                    return new TopicPartition(record.topic() + ".DLT", record.partition());
+                });
+        return recoverer;
+    }
+
+    @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
         factory.setConcurrency(3);
-        factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1000L, 3)));
+        FixedBackOff fixedBackOff = new FixedBackOff(1000L, 3);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                deadLetterPublishingRecoverer(kafkaTemplate()),
+                fixedBackOff
+        );
+        factory.setCommonErrorHandler(errorHandler);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
         return factory;
     }
