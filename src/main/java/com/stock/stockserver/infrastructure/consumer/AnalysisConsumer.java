@@ -29,8 +29,9 @@ public class AnalysisConsumer {
             log.info("Received analysis request from Kafka: analysisId={}", analysisId);
 
             analysisService.saveJob(analysisId);
+            //비동기 실행
             analysisService.runFullAnalysis(analysisId);
-
+            //즉시 커밋
             ack.acknowledge();
 
             log.info("Analysis completed: analysisId={}", analysisId);

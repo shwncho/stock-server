@@ -13,6 +13,23 @@ import java.util.concurrent.Executor;
 @Slf4j
 public class AsyncConfig {
 
+    @Bean(name = "analysisExecutor")
+    public Executor analysisExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(3);
+        executor.setMaxPoolSize(6);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("ANALYSIS-");
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+
+        log.info("Analysis Executor initialized - core: {}, max: {}",
+                executor.getCorePoolSize(),
+                executor.getMaxPoolSize());
+
+        return executor;
+    }
+
     @Bean(name = "kisApiExecutor")
     public Executor kisApiExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
