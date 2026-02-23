@@ -250,8 +250,7 @@ After:  ████ 18-25초
 
 1. **I/O-Bound 작업은 비동기가 필수**: 네트워크 대기 시간 활용
 2. **스레드 풀 크기 중요**: I/O 작업은 CPU 코어 수보다 많게 설정
-3. **배치 처리 활용**: DB INSERT/UPDATE는 배치로 처리
-4. **타임아웃 설정**: 외부 API 호출은 반드시 타임아웃 설정
+3.  **타임아웃 설정**: 외부 API 호출은 반드시 타임아웃 설정
 
 ---
 
@@ -341,7 +340,7 @@ public void consumeAnalysisRequest(String message) {
 
 ### DLQ (Dead Letter Queue)
 
-失败한 메시지를 별도의 토픽(`analysis-requests.DLT`)으로 전송하여 문제 분석 및 재처리가 가능
+실패한 메시지를 별도의 토픽(`analysis-requests.DLT`)으로 전송하여 문제 분석 및 재처리가 가능
 
 ```
 재시도 3회 실패 → DLQ 토픽으로 자동 이동 → 나중에 수동/자동 재처리
