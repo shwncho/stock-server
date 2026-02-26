@@ -306,7 +306,7 @@ public class LLMApiClient {
             log.error("LLM 응답 파싱 실패", e);
 
             return LLMAnalysisResponseDto.builder()
-                    .recommendation(RecommendationStatus.HOLD)
+                    .recommendation(RecommendationStatus.ERROR)
                     .confidence(0.0)
                     .summary("분석 결과 파싱에 실패했습니다.")
                     .fullAnalysis(fullText)

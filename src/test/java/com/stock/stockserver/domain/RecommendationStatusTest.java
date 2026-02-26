@@ -14,6 +14,7 @@ class RecommendationStatusTest {
         assertNotNull(RecommendationStatus.BUY);
         assertNotNull(RecommendationStatus.SELL);
         assertNotNull(RecommendationStatus.HOLD);
+        assertNotNull(RecommendationStatus.ERROR);
     }
 
     @Test
@@ -22,5 +23,6 @@ class RecommendationStatusTest {
         assertEquals("BUY", RecommendationStatus.BUY.name());
         assertEquals("SELL", RecommendationStatus.SELL.name());
         assertEquals("HOLD", RecommendationStatus.HOLD.name());
+        assertEquals("ERROR", RecommendationStatus.ERROR.name());
     }
 }
