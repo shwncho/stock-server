@@ -1,5 +1,7 @@
 package com.stock.stockserver.infrastructure.external;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.stock.stockserver.domain.RecommendationStatus;
 import com.stock.stockserver.dto.LLMAnalysisResponseDto;
 import com.stock.stockserver.dto.StockDataDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -164,7 +166,7 @@ public class LLMApiClient {
         return String.format(
                 """
                 다음은 한국 주식 시장의 거래량 상위 종목 중 하나의 데이터입니다.
-                기술적 분석을 통해 투자 의견을 제시해주세요.
+                제공된 가격 및 거래량 데이터를 기반으로 기술적 분석을 수행하고 투자 의견을 제시해주세요.
     
                 [종목 정보]
                 종목명: %s
@@ -184,31 +186,40 @@ public class LLMApiClient {
                 [최근 60일 일봉 데이터]
                 %s
     
+                -----------------------
                 [분석 요청사항]
-                1. 위 데이터를 기반으로 기술적 분석 (추세, 지지선/저항선 등)
-                2. 거래량 분석 (거래량 패턴 및 의미)
-                3. 가격 변동 패턴 분석
-                4. 투자 의견 제시 (매수/매도/보유)
-                5. 투자 근거 및 주의사항
-                6. 분석 본문은 반드시 Markdown 문법으로 작성하세요.
-                7. 각 섹션 제목은 반드시 ### 헤더로 시작하세요.
-                8. 리스트는 반드시 '-' 로 작성하세요.
+    
+                1. 위 데이터를 기반으로 기술적 분석 (추세, 지지선/저항선, 이동평균 관점 등)
+                2. 거래량 분석 (최근 거래량 패턴 및 의미)
+                3. 가격 변동 패턴 분석 (변동성 및 주요 흐름)
+                4. 단기(1년 이내), 중기(3~5년), 장기(5~10년) 관점을 고려하되,
+                   최종 투자 의견은 반드시 하나의 종합 판단(매수/매도)으로 제시하세요.
+                5. 투자 근거 및 주의사항 제시
     
                 -----------------------
-                [출력 규칙]
-                반드시 마지막에 아래 JSON을 출력하세요.
-                JSON은 반드시 ```json 코드블록으로 감싸야 합니다.
-                recommendation 값은 BUY, SELL, HOLD 중 하나만 가능합니다.
+                [출력 형식 규칙]
     
-                ```json
+                - 분석 본문은 반드시 Markdown 문법으로 작성하세요.
+                - 모든 섹션 헤더는 반드시 정확히 '### ' 로 시작해야 합니다.
+                - #### 또는 다른 단계의 헤더는 사용하지 마세요.
+                - 리스트는 반드시 '-' 로 작성하세요.
+                - recommendation 단어는 JSON 외의 영역에서 절대 사용하지 마세요.
+    
+                -----------------------
+                [JSON 출력 규칙]
+    
+                - 반드시 응답의 가장 마지막 줄에 순수 JSON 객체만 출력하세요.
+                - JSON은 코드블럭(```)을 절대 사용하지 마세요.
+                - JSON 객체 이후에는 어떠한 텍스트도 출력하지 마세요.
+                - recommendation 값은 BUY, SELL 중 하나만 가능합니다.
+                - confidence는 0.0 이상 1.0 이하의 소수점 숫자로 작성하세요.
+                - summary는 한 줄 요약입니다.
+    
                 {
-                  "recommendation": "BUY|SELL|HOLD",
+                  "recommendation": "BUY|SELL",
                   "confidence": 0.0,
                   "summary": "한 줄 요약"
                 }
-                ```
-    
-                위 JSON 외에는 recommendation을 명시하지 마세요.
                 """,
                 stockData.stockName(),
                 stockData.stockCode(),
@@ -264,48 +275,42 @@ public class LLMApiClient {
 
 
     private LLMAnalysisResponseDto parseLLMResponse(String fullText) {
+
         try {
-            String json = extractJsonBlock(fullText);
+            // 마지막 JSON 시작 위치 찾기
+            int jsonStart = fullText.lastIndexOf("{");
+            if (jsonStart == -1) {
+                throw new IllegalStateException("JSON 시작점 없음");
+            }
 
-            Map<String, Object> map = objectMapper.readValue(json, Map.class);
+            String jsonPart = fullText.substring(jsonStart).trim();
+            String analysisPart = fullText.substring(0, jsonStart).trim();
 
-            String recommendationStr = ((String) map.get("recommendation")).toUpperCase();
-            Double confidence = (Double) map.getOrDefault("confidence", 0);
-            String summary = (String) map.getOrDefault("summary", "");
+            JsonNode root = objectMapper.readTree(jsonPart);
+
+            String recommendationStr = root.get("recommendation").asText();
+            double confidence = root.get("confidence").asDouble();
+            String summary = root.get("summary").asText();
 
             return LLMAnalysisResponseDto.builder()
-                    .recommendation(Enum.valueOf(com.stock.stockserver.domain.RecommendationStatus.class, recommendationStr))
+                    .recommendation(
+                            Enum.valueOf(RecommendationStatus.class, recommendationStr)
+                    )
                     .confidence(confidence)
                     .summary(summary)
-                    .fullAnalysis(fullText)
+                    .fullAnalysis(analysisPart)
                     .build();
 
         } catch (Exception e) {
-            log.error("LLM 응답 JSON 파싱 실패. fullText={}", fullText, e);
 
-            // 파싱 실패 시 HOLD 처리
+            log.error("LLM 응답 파싱 실패", e);
+
             return LLMAnalysisResponseDto.builder()
-                    .recommendation(com.stock.stockserver.domain.RecommendationStatus.HOLD)
+                    .recommendation(RecommendationStatus.HOLD)
                     .confidence(0.0)
-                    .summary("LLM 응답 파싱 실패")
+                    .summary("분석 결과 파싱에 실패했습니다.")
                     .fullAnalysis(fullText)
                     .build();
         }
-    }
-
-    private String extractJsonBlock(String fullText) {
-        int start = fullText.indexOf("```json");
-        if (start == -1) {
-            throw new IllegalStateException("json code block not found");
-        }
-
-        int jsonStart = fullText.indexOf("{", start);
-        int end = fullText.indexOf("```", jsonStart);
-
-        if (jsonStart == -1 || end == -1) {
-            throw new IllegalStateException("invalid json code block format");
-        }
-
-        return fullText.substring(jsonStart, end).trim();
     }
 }
