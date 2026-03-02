@@ -46,7 +46,7 @@ public class LLMApiClient {
      */
     @Cacheable(
             cacheNames = "llmAnalysisCache",
-            key = "#stockData.stockCode()",
+            key = "#stockData.stockCode() + '_' + T(java.time.LocalDateTime).now().getHour()",
             unless = "#result == null"
     )
     public LLMAnalysisResponseDto analyzeStock(StockDataDto stockData) {

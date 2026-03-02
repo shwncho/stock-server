@@ -10,7 +10,7 @@ class RecommendationStatusTest {
     @Test
     @DisplayName("RecommendationStatus enum 값 확인")
     void recommendationStatus_values() {
-        assertEquals(3, RecommendationStatus.values().length);
+        assertEquals(4, RecommendationStatus.values().length);
         assertNotNull(RecommendationStatus.BUY);
         assertNotNull(RecommendationStatus.SELL);
         assertNotNull(RecommendationStatus.HOLD);
