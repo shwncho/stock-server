@@ -34,7 +34,7 @@ public class RedisCacheConfig {
                 .disableCachingNullValues()
                 .entryTtl(Duration.ofMinutes(5)); // default TTL
 
-        RedisCacheConfiguration llmConfig = defaultConfig.entryTtl(Duration.ofHours(6));
+        RedisCacheConfiguration llmConfig = defaultConfig.entryTtl(Duration.ofHours(1));
         RedisCacheConfiguration kisDailyConfig = defaultConfig.entryTtl(Duration.ofHours(1));
         RedisCacheConfiguration kisVolumeRankConfig = defaultConfig.entryTtl(Duration.ofMinutes(10));
 
