@@ -102,7 +102,10 @@ public class KisApiClient {
     /**
      * 일봉 데이터 조회
      */
-    @Cacheable(cacheNames = "kisDailyCache", key = "#stockCode + ':' + #days")
+    @Cacheable(
+            cacheNames = "kisDailyCache",
+            key = "#stockCode + ':' + #days + ':' + T(java.time.LocalDate).now()"
+    )
     public List<DailyPriceDto> getDailyData(String stockCode, int days) {
         String endpoint = "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice";
         String trId = "FHKST03010100";
