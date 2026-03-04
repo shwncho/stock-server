@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -41,18 +42,8 @@ class StockAnalysisServiceTest {
     @Mock
     private Executor llmApiExecutor;
 
+    @InjectMocks
     private StockAnalysisService stockAnalysisService;
-
-    @BeforeEach
-    void setUp() {
-        stockAnalysisService = new StockAnalysisService(
-                dataCollectionService,
-                llmApiClient,
-                analysisResultRepository,
-                jobStore,
-                llmApiExecutor
-        );
-    }
 
     @Test
     @DisplayName("saveJob - 분석 작업 저장")

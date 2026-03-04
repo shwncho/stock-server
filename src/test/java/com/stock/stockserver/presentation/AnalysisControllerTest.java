@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -36,12 +37,8 @@ class AnalysisControllerTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @InjectMocks
     private AnalysisController analysisController;
-
-    @BeforeEach
-    void setUp() {
-        analysisController = new AnalysisController(analysisService, kafkaTemplate, objectMapper);
-    }
 
     @Test
     @DisplayName("runAnalysis - 분석 요청 시 200 응답")
