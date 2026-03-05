@@ -39,6 +39,7 @@ public class KisApiClient {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final OkHttpClient okHttpClient;
     private String cachedAccessToken;
     private Instant tokenExpirationTime;
 
@@ -213,8 +214,6 @@ public class KisApiClient {
             return cachedAccessToken;
         }
 
-        OkHttpClient client = new OkHttpClient().newBuilder().build();
-
         String jsonBody = String.format(
                 "{\"grant_type\":\"client_credentials\",\"appkey\":\"%s\",\"appsecret\":\"%s\"}",
                 appKey, appSecret
@@ -234,7 +233,7 @@ public class KisApiClient {
                 .addHeader("content-type", "application/json")
                 .build();
 
-        try (Response response = client.newCall(request).execute()) {
+        try (Response response = okHttpClient.newCall(request).execute()) {
             String responseBody = response.body().string();
             log.info("Response Code: {}", response.code());
             log.info("Response Body: {}", responseBody);
@@ -244,7 +243,7 @@ public class KisApiClient {
             }
 
             cachedAccessToken = responseBody.split("\"access_token\":\"")[1].split("\"")[0];
-            tokenExpirationTime = Instant.now().plusSeconds(86400); // 토큰 유효 기간을 24시간으로 설정
+            tokenExpirationTime = Instant.now().plusSeconds(86400);
             return cachedAccessToken;
         } catch (Exception e) {
             log.error("토큰 발급 중 오류 발생", e);
@@ -256,7 +255,7 @@ public class KisApiClient {
         if (isTokenValid()) {
             return cachedAccessToken;
         } else {
-            return getAccessToken(); // 토큰이 만료되었거나 없으면 새로 발급
+            return getAccessToken();
         }
     }
 
