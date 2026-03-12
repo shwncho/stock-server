@@ -1,7 +1,7 @@
 package com.stock.stockserver.application;
 
-import com.stock.stockserver.domain.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
+import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.domain.repository.AnalysisJobStore;
 import com.stock.stockserver.domain.repository.LLMAnalysisResultRepository;
@@ -36,37 +36,31 @@ public class StockAnalysisService {
     @Async("analysisExecutor")
     public void runFullAnalysis(String analysisId) {
         try {
-            List<LLMAnalysisResult> results = runFullAnalysisInternal();
-            jobStore.save(new AnalysisJob(
-                    analysisId,
-                    AnalysisStatus.DONE,
-                    results,
-                    null
-            ));
+            List<LLMAnalysisResult> results = runFullAnalysisInternal(analysisId);
+            jobStore.save(AnalysisJob.builder()
+                    .analysisId(analysisId)
+                    .status(AnalysisStatus.DONE)
+                    .errorMessage(null)
+                    .build());
         } catch (Exception e) {
-            jobStore.save(new AnalysisJob(
-                    analysisId,
-                    AnalysisStatus.FAILED,
-                    null,
-                    e.getMessage()
-            ));
+            log.error("분석 실패: analysisId={}, error={}", analysisId, e.getMessage(), e);
+            jobStore.save(AnalysisJob.builder()
+                    .analysisId(analysisId)
+                    .status(AnalysisStatus.FAILED)
+                    .errorMessage(e.getMessage())
+                    .build());
         }
     }
 
-    /**
-     * 전체 분석 프로세스 실행 (병렬 처리)
-     */
     @Transactional
-    public List<LLMAnalysisResult> runFullAnalysisInternal() {
+    public List<LLMAnalysisResult> runFullAnalysisInternal(String analysisId) {
         log.info("\n");
         log.info("=====================================");
         log.info("  KIS Stock Analysis with LLM (병렬)");
         log.info("=====================================\n");
 
-        // 1단계: 데이터 수집 (병렬 처리 포함)
         List<StockDataDto> stockDataList = dataCollectionService.collectStockData();
 
-        // 2단계: LLM 분석 (제한된 병렬 처리)
         List<CompletableFuture<LLMAnalysisResult>> futures = stockDataList.stream()
                 .map(stockData -> CompletableFuture.supplyAsync(() -> {
                     try {
@@ -81,6 +75,7 @@ public class StockAnalysisService {
                                     .analysisDate(LocalDate.now())
                                     .llmAnalysis(removeJsonBlock(analysisResponse.fullAnalysis()))
                                     .recommendation(analysisResponse.recommendation())
+                                    .analysisId(analysisId)
                                     .build();
                             log.info("분석 완료: {} ", stockData.stockCode());
 
@@ -93,25 +88,24 @@ public class StockAnalysisService {
                 }, llmApiExecutor))
                 .collect(Collectors.toList());
 
-        // 모든 병렬 작업 완료 대기 및 결과 수집
         List<LLMAnalysisResult> results = futures.stream()
                 .map(CompletableFuture::join)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
-        // 3단계: DB 배치 저장
         if (!results.isEmpty()) {
             analysisResultRepository.saveAll(results);
             log.info("DB 배치 저장 완료: {} 개", results.size());
         }
 
-        // 4단계: 결과 출력
         generateReport(results);
 
         return results;
     }
 
     private String removeJsonBlock(String fullText) {
+        if (fullText == null) return null;
+        
         int start = fullText.indexOf("```json");
         if (start == -1) {
             return fullText;
@@ -122,13 +116,9 @@ public class StockAnalysisService {
             return fullText;
         }
 
-        // json 코드블록 전체 제거
         return (fullText.substring(0, start) + fullText.substring(end + 3)).trim();
     }
 
-    /**
-     * 최종 리포트 생성
-     */
     private void generateReport(List<LLMAnalysisResult> results) {
         log.info("\n=====================================");
         log.info("        분석 결과 리포트");
@@ -145,9 +135,6 @@ public class StockAnalysisService {
         log.info("=====================================\n");
     }
 
-    /**
-     * 최근 분석 결과 조회
-     */
     public List<AnalysisResultDto> getLatestAnalysis() {
         List<LLMAnalysisResult> results = analysisResultRepository.findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
         return results.stream()
@@ -155,16 +142,26 @@ public class StockAnalysisService {
                 .toList();
     }
 
-    public void saveJob(String analysisId) {
-        jobStore.save(new AnalysisJob(
-                analysisId,
-                AnalysisStatus.RUNNING,
-                null,
-                null)
-        );
+    public List<AnalysisResultDto> getAnalysisResults(String analysisId) {
+        List<LLMAnalysisResult> results = analysisResultRepository.findByAnalysisIdOrderByCreatedAtDesc(analysisId);
+        return results.stream()
+                .map(AnalysisResultDto::from)
+                .toList();
+    }
+
+    public AnalysisStatus getJobStatus(String analysisId) {
+        return jobStore.getStatus(analysisId);
     }
 
     public AnalysisJob getAnalysisJob(String analysisId) {
         return jobStore.get(analysisId);
+    }
+
+    public void saveJob(String analysisId) {
+        jobStore.save(AnalysisJob.builder()
+                .analysisId(analysisId)
+                .status(AnalysisStatus.RUNNING)
+                .errorMessage(null)
+                .build());
     }
 }

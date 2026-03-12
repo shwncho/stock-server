@@ -38,12 +38,16 @@ public class LLMAnalysisResult {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(length = 36)
+    private String analysisId;
+
     @Builder
     private LLMAnalysisResult(String stockCode,
                               String stockName,
                               LocalDate analysisDate,
                               String llmAnalysis,
-                              RecommendationStatus recommendation) {
+                              RecommendationStatus recommendation,
+                              String analysisId) {
 
         this.stockCode = stockCode;
         this.stockName = stockName;
@@ -51,5 +55,6 @@ public class LLMAnalysisResult {
         this.llmAnalysis = llmAnalysis;
         this.recommendation = recommendation;
         this.createdAt = LocalDateTime.now();
+        this.analysisId = analysisId;
     }
 }

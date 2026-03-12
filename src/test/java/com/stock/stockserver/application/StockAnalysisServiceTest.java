@@ -1,6 +1,6 @@
 package com.stock.stockserver.application;
 
-import com.stock.stockserver.domain.AnalysisJob;
+import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.domain.repository.AnalysisJobStore;
@@ -59,7 +59,11 @@ class StockAnalysisServiceTest {
     @DisplayName("getAnalysisJob - 분석 작업 조회")
     void getAnalysisJob() {
         String analysisId = "test-analysis-id";
-        AnalysisJob expectedJob = new AnalysisJob(analysisId, AnalysisStatus.RUNNING, null, null);
+        AnalysisJob expectedJob = AnalysisJob.builder()
+                .analysisId(analysisId)
+                .status(AnalysisStatus.RUNNING)
+                .errorMessage(null)
+                .build();
         when(jobStore.get(analysisId)).thenReturn(expectedJob);
 
         AnalysisJob result = stockAnalysisService.getAnalysisJob(analysisId);
@@ -89,6 +93,7 @@ class StockAnalysisServiceTest {
                 .analysisDate(LocalDate.now())
                 .llmAnalysis("Analysis text")
                 .recommendation(com.stock.stockserver.domain.RecommendationStatus.BUY)
+                .analysisId("test-id")
                 .build();
 
         when(analysisResultRepository.findTop10ByAnalysisDateOrderByCreatedAtDesc(any()))

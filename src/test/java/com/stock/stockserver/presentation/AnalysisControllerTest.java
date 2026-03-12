@@ -2,7 +2,7 @@ package com.stock.stockserver.presentation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.application.StockAnalysisService;
-import com.stock.stockserver.domain.AnalysisJob;
+import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.dto.AnalysisResultDto;
 import com.stock.stockserver.dto.AnalysisStatusDto;
@@ -56,9 +56,7 @@ class AnalysisControllerTest {
     @DisplayName("getStatus - 분석 상태 조회")
     void getStatus_success() {
         String analysisId = "test-id";
-        AnalysisJob job = mock(AnalysisJob.class);
-        when(job.getStatus()).thenReturn(AnalysisStatus.RUNNING);
-        when(analysisService.getAnalysisJob(analysisId)).thenReturn(job);
+        when(analysisService.getJobStatus(analysisId)).thenReturn(AnalysisStatus.RUNNING);
 
         ResponseEntity<AnalysisStatusDto> response = analysisController.getStatus(analysisId);
 
@@ -71,7 +69,7 @@ class AnalysisControllerTest {
     @DisplayName("getStatus - 분석 작업이 없는 경우 404 응답")
     void getStatus_notFound() {
         String analysisId = "non-existent-id";
-        when(analysisService.getAnalysisJob(analysisId)).thenReturn(null);
+        when(analysisService.getJobStatus(analysisId)).thenReturn(null);
 
         ResponseEntity<AnalysisStatusDto> response = analysisController.getStatus(analysisId);
 

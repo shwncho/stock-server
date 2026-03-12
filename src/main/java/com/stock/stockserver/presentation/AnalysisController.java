@@ -3,7 +3,7 @@ package com.stock.stockserver.presentation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.application.StockAnalysisService;
-import com.stock.stockserver.domain.AnalysisJob;
+import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.dto.AnalysisEvent;
 import com.stock.stockserver.dto.AnalysisResultDto;
@@ -55,14 +55,12 @@ public class AnalysisController {
 
     @GetMapping("/status/{analysisId}")
     public ResponseEntity<AnalysisStatusDto> getStatus(@PathVariable String analysisId) {
-        AnalysisJob job = analysisService.getAnalysisJob(analysisId);
-        if (job == null) {
+        AnalysisStatus status = analysisService.getJobStatus(analysisId);
+        if (status == null) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(
-                new AnalysisStatusDto(
-                        job.getStatus()
-                )
+                new AnalysisStatusDto(status)
         );
     }
 
@@ -78,11 +76,8 @@ public class AnalysisController {
             return ResponseEntity.status(HttpStatus.ACCEPTED).build();
         }
 
-        return ResponseEntity.ok(
-                job.getResults().stream()
-                        .map(AnalysisResultDto::from)
-                        .toList()
-        );
+        List<AnalysisResultDto> results = analysisService.getAnalysisResults(analysisId);
+        return ResponseEntity.ok(results);
     }
 
     /**

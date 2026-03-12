@@ -1,13 +1,8 @@
 package com.stock.stockserver.domain;
 
-import com.stock.stockserver.domain.entity.LLMAnalysisResult;
+import com.stock.stockserver.domain.entity.AnalysisJob;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,57 +11,71 @@ class AnalysisJobTest {
     @Test
     @DisplayName("AnalysisJob 생성 테스트 - RUNNING 상태")
     void createAnalysisJob_running() {
-        AnalysisJob job = new AnalysisJob(
-                "test-analysis-id",
-                AnalysisStatus.RUNNING,
-                null,
-                null
-        );
+        AnalysisJob job = AnalysisJob.builder()
+                .analysisId("test-analysis-id")
+                .status(AnalysisStatus.RUNNING)
+                .errorMessage(null)
+                .build();
 
         assertEquals("test-analysis-id", job.getAnalysisId());
         assertEquals(AnalysisStatus.RUNNING, job.getStatus());
-        assertNull(job.getResults());
         assertNull(job.getErrorMessage());
     }
 
     @Test
     @DisplayName("AnalysisJob 생성 테스트 - DONE 상태")
     void createAnalysisJob_done() {
-        LLMAnalysisResult result = LLMAnalysisResult.builder()
-                .stockCode("005930")
-                .stockName("Samsung Electronics")
-                .analysisDate(LocalDate.now())
-                .llmAnalysis("Test analysis")
-                .recommendation(RecommendationStatus.BUY)
+        AnalysisJob job = AnalysisJob.builder()
+                .analysisId("test-analysis-id")
+                .status(AnalysisStatus.DONE)
+                .errorMessage(null)
                 .build();
-
-        AnalysisJob job = new AnalysisJob(
-                "test-analysis-id",
-                AnalysisStatus.DONE,
-                Arrays.asList(result),
-                null
-        );
 
         assertEquals("test-analysis-id", job.getAnalysisId());
         assertEquals(AnalysisStatus.DONE, job.getStatus());
-        assertNotNull(job.getResults());
-        assertEquals(1, job.getResults().size());
         assertNull(job.getErrorMessage());
     }
 
     @Test
     @DisplayName("AnalysisJob 생성 테스트 - FAILED 상태")
     void createAnalysisJob_failed() {
-        AnalysisJob job = new AnalysisJob(
-                "test-analysis-id",
-                AnalysisStatus.FAILED,
-                null,
-                "Network error"
-        );
+        AnalysisJob job = AnalysisJob.builder()
+                .analysisId("test-analysis-id")
+                .status(AnalysisStatus.FAILED)
+                .errorMessage("Network error")
+                .build();
 
         assertEquals("test-analysis-id", job.getAnalysisId());
         assertEquals(AnalysisStatus.FAILED, job.getStatus());
-        assertNull(job.getResults());
         assertEquals("Network error", job.getErrorMessage());
+    }
+
+    @Test
+    @DisplayName("AnalysisJob 상태 업데이트 테스트")
+    void updateStatus() {
+        AnalysisJob job = AnalysisJob.builder()
+                .analysisId("test-analysis-id")
+                .status(AnalysisStatus.RUNNING)
+                .errorMessage(null)
+                .build();
+
+        job.updateStatus(AnalysisStatus.DONE);
+
+        assertEquals(AnalysisStatus.DONE, job.getStatus());
+    }
+
+    @Test
+    @DisplayName("AnalysisJob 상태 및 에러 메시지 업데이트 테스트")
+    void updateStatusWithError() {
+        AnalysisJob job = AnalysisJob.builder()
+                .analysisId("test-analysis-id")
+                .status(AnalysisStatus.RUNNING)
+                .errorMessage(null)
+                .build();
+
+        job.updateStatusWithError(AnalysisStatus.FAILED, "Connection timeout");
+
+        assertEquals(AnalysisStatus.FAILED, job.getStatus());
+        assertEquals("Connection timeout", job.getErrorMessage());
     }
 }
