@@ -5,8 +5,13 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "daily_prices", indexes = {
@@ -14,6 +19,7 @@ import java.time.LocalDate;
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EntityListeners(AuditingEntityListener.class)
 public class DailyPrice {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,6 +45,13 @@ public class DailyPrice {
 
     @Column(nullable = false)
     private Long volume;
+
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
 
     @Builder
     private DailyPrice(String stockCode, LocalDate tradeDate,

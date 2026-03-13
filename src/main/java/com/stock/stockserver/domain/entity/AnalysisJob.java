@@ -7,6 +7,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -16,6 +19,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 public class AnalysisJob {
 
     @Id
@@ -29,22 +33,12 @@ public class AnalysisJob {
     @Column(columnDefinition = "LONGTEXT")
     private String errorMessage;
 
+    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column
+    @LastModifiedDate
     private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 
     @Builder
     public AnalysisJob(String analysisId, AnalysisStatus status, String errorMessage) {

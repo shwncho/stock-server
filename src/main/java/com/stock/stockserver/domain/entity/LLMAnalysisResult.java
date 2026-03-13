@@ -6,6 +6,10 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -13,6 +17,7 @@ import java.time.LocalDateTime;
 @Table(name = "llm_analysis_results")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EntityListeners(AuditingEntityListener.class)
 public class LLMAnalysisResult {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,7 +32,6 @@ public class LLMAnalysisResult {
     @Column(nullable = false)
     private LocalDate analysisDate;
 
-    // LLM의 분석 결과
     @Column(columnDefinition = "LONGTEXT")
     private String llmAnalysis;
 
@@ -35,8 +39,12 @@ public class LLMAnalysisResult {
     @Column(nullable = false, length = 10)
     private RecommendationStatus recommendation;
 
-    @Column(nullable = false)
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
 
     @Column(length = 36)
     private String analysisId;
@@ -54,7 +62,6 @@ public class LLMAnalysisResult {
         this.analysisDate = analysisDate;
         this.llmAnalysis = llmAnalysis;
         this.recommendation = recommendation;
-        this.createdAt = LocalDateTime.now();
         this.analysisId = analysisId;
     }
 }

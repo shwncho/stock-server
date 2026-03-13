@@ -55,22 +55,22 @@ public class AnalysisController {
 
     @GetMapping("/status/{analysisId}")
     public ResponseEntity<AnalysisStatusDto> getStatus(@PathVariable String analysisId) {
-        AnalysisStatusDto status = analysisService.getJobStatus(analysisId);
+        AnalysisStatus status = analysisService.getJobStatus(analysisId);
         if (status == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(status);
+        return ResponseEntity.ok(new AnalysisStatusDto(status));
     }
 
     @GetMapping("/result/{analysisId}")
     public ResponseEntity<List<AnalysisResultDto>> getResult(@PathVariable String analysisId) {
-        AnalysisStatusDto jobStatus = analysisService.getJobStatus(analysisId);
+        AnalysisJob job = analysisService.getAnalysisJob(analysisId);
 
-        if (jobStatus == null) {
+        if (job == null) {
             return ResponseEntity.notFound().build();
         }
 
-        if (jobStatus.analysisStatus() != AnalysisStatus.DONE) {
+        if (job.getStatus() != AnalysisStatus.DONE) {
             return ResponseEntity.status(HttpStatus.ACCEPTED).build();
         }
 

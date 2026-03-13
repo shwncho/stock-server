@@ -106,7 +106,7 @@ public class StockAnalysisService {
 
     private String removeJsonBlock(String fullText) {
         if (fullText == null) return null;
-        
+
         int start = fullText.indexOf("```json");
         if (start == -1) {
             return fullText;
@@ -150,8 +150,12 @@ public class StockAnalysisService {
                 .toList();
     }
 
-    public AnalysisStatusDto getJobStatus(String analysisId) {
-        return new AnalysisStatusDto(jobStore.getStatus(analysisId));
+    public AnalysisStatus getJobStatus(String analysisId) {
+        return jobStore.getStatus(analysisId);
+    }
+
+    public AnalysisJob getAnalysisJob(String analysisId) {
+        return jobStore.get(analysisId);
     }
 
     public void saveJob(String analysisId) {

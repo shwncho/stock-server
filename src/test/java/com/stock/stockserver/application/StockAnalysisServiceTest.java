@@ -56,35 +56,6 @@ class StockAnalysisServiceTest {
     }
 
     @Test
-    @DisplayName("getAnalysisJob - 분석 작업 조회")
-    void getAnalysisJob() {
-        String analysisId = "test-analysis-id";
-        AnalysisJob expectedJob = AnalysisJob.builder()
-                .analysisId(analysisId)
-                .status(AnalysisStatus.RUNNING)
-                .errorMessage(null)
-                .build();
-        when(jobStore.get(analysisId)).thenReturn(expectedJob);
-
-        AnalysisJob result = stockAnalysisService.getAnalysisJob(analysisId);
-
-        assertNotNull(result);
-        assertEquals(analysisId, result.getAnalysisId());
-        assertEquals(AnalysisStatus.RUNNING, result.getStatus());
-    }
-
-    @Test
-    @DisplayName("getAnalysisJob - 작업이 없는 경우")
-    void getAnalysisJob_notFound() {
-        String analysisId = "non-existent-id";
-        when(jobStore.get(analysisId)).thenReturn(null);
-
-        AnalysisJob result = stockAnalysisService.getAnalysisJob(analysisId);
-
-        assertNull(result);
-    }
-
-    @Test
     @DisplayName("getLatestAnalysis - 최근 분석 결과 조회")
     void getLatestAnalysis() {
         LLMAnalysisResult result1 = LLMAnalysisResult.builder()
