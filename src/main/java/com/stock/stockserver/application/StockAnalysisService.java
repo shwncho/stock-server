@@ -6,6 +6,7 @@ import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.domain.repository.AnalysisJobStore;
 import com.stock.stockserver.domain.repository.LLMAnalysisResultRepository;
 import com.stock.stockserver.dto.AnalysisResultDto;
+import com.stock.stockserver.dto.AnalysisStatusDto;
 import com.stock.stockserver.dto.LLMAnalysisResponseDto;
 import com.stock.stockserver.dto.StockDataDto;
 import com.stock.stockserver.infrastructure.external.LLMApiClient;
@@ -149,12 +150,8 @@ public class StockAnalysisService {
                 .toList();
     }
 
-    public AnalysisStatus getJobStatus(String analysisId) {
-        return jobStore.getStatus(analysisId);
-    }
-
-    public AnalysisJob getAnalysisJob(String analysisId) {
-        return jobStore.get(analysisId);
+    public AnalysisStatusDto getJobStatus(String analysisId) {
+        return new AnalysisStatusDto(jobStore.getStatus(analysisId));
     }
 
     public void saveJob(String analysisId) {
