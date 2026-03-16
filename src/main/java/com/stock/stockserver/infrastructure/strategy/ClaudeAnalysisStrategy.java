@@ -1,5 +1,6 @@
 package com.stock.stockserver.infrastructure.strategy;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.dto.StockDataDto;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +38,7 @@ public class ClaudeAnalysisStrategy implements LLMAnalysisStrategy {
     public String analyze(StockDataDto stockData) {
         String prompt = buildPrompt(stockData);
 
-        Map<String, Object> request = Map.of(
+        Map<String, Object> requestBody = Map.of(
                 "model", model,
                 "max_tokens", 2000,
                 "messages", List.of(Map.of("role", "user", "content", prompt))
@@ -46,27 +47,40 @@ public class ClaudeAnalysisStrategy implements LLMAnalysisStrategy {
         try {
             String responseBody = webClient.post()
                     .uri("https://api.anthropic.com/v1/messages")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .header("x-api-key", apiKey)
+                    .header("anthropic-version", "2023-06-01")
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                    .bodyValue(request)
+                    .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
-            Map<String, Object> response = objectMapper.readValue(responseBody, Map.class);
-            List<Map<String, Object>> content = (List<Map<String, Object>>) response.get("content");
-
-            if (content != null && !content.isEmpty()) {
-                String analysis = (String) content.get(0).get("text");
-                log.info("Claude 분석 완료: {}", stockData.stockCode());
-                return analysis;
-            }
-            return null;
+            return parseResponse(responseBody, stockData);
 
         } catch (Exception e) {
             log.error("Claude API 호출 실패: {}", stockData.stockCode(), e);
-            return null;
+            throw new RuntimeException("Claude API 호출 실패: " + e.getMessage(), e);
         }
+    }
+
+    private String parseResponse(String responseBody, StockDataDto stockData) throws Exception {
+        JsonNode root = objectMapper.readTree(responseBody);
+        
+        JsonNode content = root.get("content");
+        if (content == null || !content.isArray()) {
+            throw new IllegalStateException("Claude response에 content가 없습니다.");
+        }
+
+        for (JsonNode item : content) {
+            String type = item.has("type") ? item.get("type").asText() : "";
+            if ("text".equals(type)) {
+                String text = item.has("text") ? item.get("text").asText() : "";
+                log.info("Claude 분석 완료: {}", stockData.stockCode());
+                return text;
+            }
+        }
+
+        throw new IllegalStateException("Claude response에서 text content를 찾을 수 없습니다.");
     }
 
     @Override

@@ -60,15 +60,14 @@ kis:
       connect-timeout: 5000
       read-timeout: 10000
 
-# LLM API ??
+# LLM API
 llm:
-  # claude ?? gpt ??
-  provider: gpt
+  provider: claude
 
   # Claude API
   claude:
     api-key: ${CLAUDE_API_KEY}
-    model: claude-3-5-sonnet-20241022
+    model: claude-sonnet-4-20250514
     max-tokens: 2000
 
   # OpenAI API
