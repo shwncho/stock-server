@@ -31,25 +31,58 @@ public class LLMApiClient {
             unless = "#result == null"
     )
     public LLMAnalysisResponseDto analyzeStock(StockDataDto stockData) {
-        LLMAnalysisStrategy strategy = strategies.get(provider.toLowerCase() + "Strategy");
+        LLMAnalysisStrategy primaryStrategy = strategies.get(provider.toLowerCase() + "Strategy");
 
-        if (strategy == null) {
+        if (primaryStrategy == null) {
             log.error("알 수 없는 LLM provider: {}", provider);
             return createErrorResponse("Unknown provider: " + provider);
         }
 
-        try {
-            String analysisText = strategy.analyze(stockData);
+        LLMAnalysisStrategy fallbackStrategy = getFallbackStrategy(primaryStrategy);
 
-            if (analysisText == null) {
-                return createErrorResponse("Analysis returned null");
+        // 1차: Primary LLM 시도
+        try {
+            return executeAnalysis(primaryStrategy, stockData);
+        } catch (Exception e) {
+            log.warn("Primary LLM 실패, fallback 시도: {} - {}", stockData.stockCode(), e.getMessage());
+
+            // 2차: Fallback LLM 시도
+            if (fallbackStrategy != null) {
+                try {
+                    return executeAnalysis(fallbackStrategy, stockData);
+                } catch (Exception fallbackException) {
+                    log.error("Fallback LLM도 실패: {} - {}", stockData.stockCode(), fallbackException.getMessage());
+                    return createErrorResponse(
+                            "Primary failed: " + e.getMessage() + ", Fallback failed: " + fallbackException.getMessage()
+                    );
+                }
             }
 
-            return parseLLMResponse(analysisText);
-        } catch (Exception e) {
-            log.error("LLM 분석 실패: {}", stockData.stockCode(), e);
+            log.error("모든 LLM 분석 실패: {}", stockData.stockCode(), e);
             return createErrorResponse(e.getMessage());
         }
+    }
+
+    private LLMAnalysisResponseDto executeAnalysis(LLMAnalysisStrategy strategy, StockDataDto stockData) {
+        String analysisText = strategy.analyze(stockData);
+
+        if (analysisText == null) {
+            throw new IllegalStateException("Analysis returned null");
+        }
+
+        return parseLLMResponse(analysisText);
+    }
+
+    private LLMAnalysisStrategy getFallbackStrategy(LLMAnalysisStrategy primaryStrategy) {
+        String primaryName = primaryStrategy.getProviderName().toLowerCase();
+
+        if ("gpt".equals(primaryName)) {
+            return strategies.get("claudeStrategy");
+        } else if ("claude".equals(primaryName)) {
+            return strategies.get("gptStrategy");
+        }
+
+        return null;
     }
 
     private LLMAnalysisResponseDto createErrorResponse(String message) {

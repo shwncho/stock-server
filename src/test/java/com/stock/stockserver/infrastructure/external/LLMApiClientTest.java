@@ -13,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -26,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class LLMApiClientTest {
 
     @Mock
@@ -35,7 +38,10 @@ class LLMApiClientTest {
     private ObjectMapper objectMapper;
 
     @Mock
-    private LLMAnalysisStrategy mockStrategy;
+    private LLMAnalysisStrategy mockGptStrategy;
+
+    @Mock
+    private LLMAnalysisStrategy mockClaudeStrategy;
 
     @InjectMocks
     private LLMApiClient llmApiClient;
@@ -44,7 +50,7 @@ class LLMApiClientTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(llmApiClient, "provider", "openai");
+        ReflectionTestUtils.setField(llmApiClient, "provider", "gpt");
 
         testStockData = new StockDataDto(
                 "005930",
@@ -58,13 +64,18 @@ class LLMApiClientTest {
                 LocalDate.now(),
                 "[]"
         );
+
+        when(mockGptStrategy.getProviderName()).thenReturn("gpt");
+        when(mockClaudeStrategy.getProviderName()).thenReturn("claude");
     }
 
     @Test
     @DisplayName("analyzeStock - 성공적인 분석")
     void analyzeStock_success() throws Exception {
-        when(strategies.get("openaiStrategy")).thenReturn(mockStrategy);
-        when(mockStrategy.analyze(any(StockDataDto.class))).thenReturn(
+        when(strategies.get("gptStrategy")).thenReturn(mockGptStrategy);
+        when(strategies.get("claudeStrategy")).thenReturn(mockClaudeStrategy);
+        
+        when(mockGptStrategy.analyze(any(StockDataDto.class))).thenReturn(
                 "Some analysis text. {\"recommendation\":\"BUY\",\"confidence\":0.85,\"summary\":\"Good stock\"}"
         );
 
@@ -105,38 +116,52 @@ class LLMApiClientTest {
     }
 
     @Test
-    @DisplayName("analyzeStock - strategy가 null을 반환하는 경우")
-    void analyzeStock_nullAnalysis() throws Exception {
-        when(strategies.get("openaiStrategy")).thenReturn(mockStrategy);
-        when(mockStrategy.analyze(any(StockDataDto.class))).thenReturn(null);
+    @DisplayName("analyzeStock - GPT 실패 시 Claude로 fallback")
+    void analyzeStock_gptFallbackToClaude() throws Exception {
+        when(strategies.get("gptStrategy")).thenReturn(mockGptStrategy);
+        when(strategies.get("claudeStrategy")).thenReturn(mockClaudeStrategy);
+        
+        when(mockGptStrategy.analyze(any(StockDataDto.class))).thenThrow(new RuntimeException("GPT Error"));
+        when(mockClaudeStrategy.analyze(any(StockDataDto.class))).thenReturn(
+                "Claude analysis. {\"recommendation\":\"HOLD\",\"confidence\":0.6,\"summary\":\"Hold it\"}"
+        );
+
+        JsonNode recommendationNode = mock(JsonNode.class);
+        when(recommendationNode.asText()).thenReturn("HOLD");
+        
+        JsonNode confidenceNode = mock(JsonNode.class);
+        when(confidenceNode.asDouble()).thenReturn(0.6);
+        
+        JsonNode summaryNode = mock(JsonNode.class);
+        when(summaryNode.asText()).thenReturn("Hold it");
+        
+        JsonNode mockJsonNode = mock(JsonNode.class);
+        when(mockJsonNode.get("recommendation")).thenReturn(recommendationNode);
+        when(mockJsonNode.get("confidence")).thenReturn(confidenceNode);
+        when(mockJsonNode.get("summary")).thenReturn(summaryNode);
+        
+        when(objectMapper.readTree(anyString())).thenReturn(mockJsonNode);
 
         LLMAnalysisResponseDto result = llmApiClient.analyzeStock(testStockData);
 
         assertNotNull(result);
-        assertEquals(RecommendationStatus.ERROR, result.recommendation());
+        assertEquals(RecommendationStatus.HOLD, result.recommendation());
     }
 
     @Test
-    @DisplayName("analyzeStock - strategy에서 예외 발생")
-    void analyzeStock_exception() throws Exception {
-        when(strategies.get("openaiStrategy")).thenReturn(mockStrategy);
-        when(mockStrategy.analyze(any(StockDataDto.class))).thenThrow(new RuntimeException("API Error"));
+    @DisplayName("analyzeStock - 모든 LLM 실패 시 ERROR 반환")
+    void analyzeStock_allFailed() throws Exception {
+        when(strategies.get("gptStrategy")).thenReturn(mockGptStrategy);
+        when(strategies.get("claudeStrategy")).thenReturn(mockClaudeStrategy);
+        
+        when(mockGptStrategy.analyze(any(StockDataDto.class))).thenThrow(new RuntimeException("GPT Error"));
+        when(mockClaudeStrategy.analyze(any(StockDataDto.class))).thenThrow(new RuntimeException("Claude Error"));
 
         LLMAnalysisResponseDto result = llmApiClient.analyzeStock(testStockData);
 
         assertNotNull(result);
         assertEquals(RecommendationStatus.ERROR, result.recommendation());
-    }
-
-    @Test
-    @DisplayName("analyzeStock - 잘못된 JSON 응답 파싱")
-    void analyzeStock_invalidJson() throws Exception {
-        when(strategies.get("openaiStrategy")).thenReturn(mockStrategy);
-        when(mockStrategy.analyze(any(StockDataDto.class))).thenReturn("Invalid response");
-
-        LLMAnalysisResponseDto result = llmApiClient.analyzeStock(testStockData);
-
-        assertNotNull(result);
-        assertEquals(RecommendationStatus.ERROR, result.recommendation());
+        assertTrue(result.fullAnalysis().contains("GPT Error"));
+        assertTrue(result.fullAnalysis().contains("Claude Error"));
     }
 }

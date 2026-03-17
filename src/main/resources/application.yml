@@ -62,7 +62,7 @@ kis:
 
 # LLM API
 llm:
-  provider: claude
+  provider: gpt
 
   # Claude API
   claude:
