@@ -66,12 +66,14 @@ llm:
 
   # Claude API
   claude:
+    base-url: https://api.anthropic.com/v1/messages
     api-key: ${CLAUDE_API_KEY}
     model: claude-sonnet-4-20250514
     max-tokens: 2000
 
   # OpenAI API
   gpt:
+    base-url: https://api.openai.com/v1/chat/completions
     api-key: ${OPENAI_API_KEY}
     model: gpt-4o-mini
     max-tokens: 2000

@@ -20,11 +20,17 @@ import java.util.Map;
 @Slf4j
 public class GPTAnalysisStrategy implements LLMAnalysisStrategy {
 
+    @Value("${llm.gpt.base-url}")
+    private String baseUrl;
+
     @Value("${llm.gpt.api-key}")
     private String apiKey;
 
     @Value("${llm.gpt.model}")
     private String model;
+
+    @Value("${llm.gpt.max-tokens}")
+    private int maxTokens;
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -41,13 +47,13 @@ public class GPTAnalysisStrategy implements LLMAnalysisStrategy {
 
         Map<String, Object> request = Map.of(
                 "model", model,
-                "max_tokens", 2000,
+                "max_tokens", maxTokens,
                 "messages", List.of(Map.of("role", "user", "content", prompt))
         );
 
         try {
             String responseBody = webClient.post()
-                    .uri("https://api.openai.com/v1/chat/completions")
+                    .uri(baseUrl)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     .bodyValue(request)

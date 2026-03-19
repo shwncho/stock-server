@@ -19,11 +19,17 @@ import java.util.Map;
 @Slf4j
 public class ClaudeAnalysisStrategy implements LLMAnalysisStrategy {
 
+    @Value("${llm.claude.base-url}")
+    private String baseUrl;
+
     @Value("${llm.claude.api-key}")
     private String apiKey;
 
     @Value("${llm.claude.model}")
     private String model;
+
+    @Value("${llm.claude.max-tokens}")
+    private int maxTokens;
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -40,13 +46,13 @@ public class ClaudeAnalysisStrategy implements LLMAnalysisStrategy {
 
         Map<String, Object> requestBody = Map.of(
                 "model", model,
-                "max_tokens", 2000,
+                "max_tokens", maxTokens,
                 "messages", List.of(Map.of("role", "user", "content", prompt))
         );
 
         try {
             String responseBody = webClient.post()
-                    .uri("https://api.anthropic.com/v1/messages")
+                    .uri(baseUrl)
                     .header("x-api-key", apiKey)
                     .header("anthropic-version", "2023-06-01")
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
