@@ -10,7 +10,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -59,6 +61,15 @@ public class ClaudeAnalysisStrategy implements LLMAnalysisStrategy {
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
+                    .timeout(Duration.ofSeconds(45))
+                    .retryWhen(Retry.backoff(2, Duration.ofSeconds(2))
+                            .maxBackoff(Duration.ofSeconds(10))
+                            .doBeforeRetry(retrySignal ->
+                                    log.warn("CLAUDE API 재시도: {} - 시도 {}/{}",
+                                            stockData.stockCode(),
+                                            retrySignal.totalRetries() + 1, 2)
+                            )
+                    )
                     .block();
 
             return parseResponse(responseBody, stockData);

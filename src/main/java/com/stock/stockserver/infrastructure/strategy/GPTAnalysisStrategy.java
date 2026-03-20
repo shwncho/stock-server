@@ -65,7 +65,9 @@ public class GPTAnalysisStrategy implements LLMAnalysisStrategy {
                             .doBeforeRetry(retrySignal ->
                                     log.warn("GPT API 재시도: {} - 시도 {}/{}",
                                             stockData.stockCode(),
-                                            retrySignal.totalRetries() + 1, 2)))
+                                            retrySignal.totalRetries() + 1, 2)
+                            )
+                    )
                     .block();
 
             Map<String, Object> response = objectMapper.readValue(responseBody, Map.class);
