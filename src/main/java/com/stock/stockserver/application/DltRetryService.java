@@ -26,7 +26,7 @@ public class DltRetryService {
     private static final String ANALYSIS_TOPIC = "analysis-requests";
     private static final int MAX_RETRY_COUNT = 3;
 
-    @Scheduled(initialDelay = 60000, fixedDelay = 600000)
+    @Scheduled(initialDelay = 60000, fixedDelay = 300000)
     @Transactional
     public void retryFailedRequests() {
         log.info("DLT 재시도 스케줄러 실행");
