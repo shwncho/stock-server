@@ -7,12 +7,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import okhttp3.*;
 
 import java.time.DayOfWeek;
-import java.time.Instant;
+import java.time.Duration;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -36,12 +37,13 @@ public class KisApiClient {
     private String appSecret;
 
     private final String TOKEN_PATH = "/oauth2/tokenP";
+    private static final String ACCESS_TOKEN_KEY = "kis:access-token";
+    private static final Duration ACCESS_TOKEN_TTL = Duration.ofHours(6);
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final OkHttpClient okHttpClient;
-    private String cachedAccessToken;
-    private Instant tokenExpirationTime;
+    private final StringRedisTemplate redisTemplate;
 
 
     /**
@@ -210,8 +212,9 @@ public class KisApiClient {
     }
 
     public String getAccessToken() throws Exception {
-        if (isTokenValid()) {
-            return cachedAccessToken;
+        String cachedToken = readCachedAccessToken();
+        if (cachedToken != null) {
+            return cachedToken;
         }
 
         String jsonBody = String.format(
@@ -242,9 +245,16 @@ public class KisApiClient {
                 throw new RuntimeException("API 호출 실패: " + response.code() + ", Body: " + responseBody);
             }
 
-            cachedAccessToken = responseBody.split("\"access_token\":\"")[1].split("\"")[0];
-            tokenExpirationTime = Instant.now().plusSeconds(86400);
-            return cachedAccessToken;
+            Map<String, Object> tokenResponse = objectMapper.readValue(responseBody, Map.class);
+            String accessToken = (String) tokenResponse.get("access_token");
+
+            if (accessToken == null || accessToken.isBlank()) {
+                throw new RuntimeException("KIS access token 응답에 access_token이 없습니다.");
+            }
+
+            redisTemplate.opsForValue().set(ACCESS_TOKEN_KEY, accessToken, ACCESS_TOKEN_TTL);
+
+            return accessToken;
         } catch (Exception e) {
             log.error("토큰 발급 중 오류 발생", e);
             throw e;
@@ -252,15 +262,16 @@ public class KisApiClient {
     }
 
     public String getCachedAccessToken() throws Exception {
-        if (isTokenValid()) {
-            return cachedAccessToken;
-        } else {
-            return getAccessToken();
+        String cachedToken = readCachedAccessToken();
+        if (cachedToken != null) {
+            return cachedToken;
         }
+
+        return getAccessToken();
     }
 
-    private boolean isTokenValid() {
-        return cachedAccessToken != null && Instant.now().isBefore(tokenExpirationTime);
+    private String readCachedAccessToken() {
+        return redisTemplate.opsForValue().get(ACCESS_TOKEN_KEY);
     }
 
     private String buildQueryString(Map<String, String> params) throws Exception {
