@@ -1,6 +1,7 @@
 package com.stock.stockserver.infrastructure.external;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stock.stockserver.infrastructure.persistence.RedisRepository;
 import okhttp3.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -9,8 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -36,10 +35,7 @@ class KisApiClientTest {
     private okhttp3.Call mockCall;
 
     @Mock
-    private StringRedisTemplate redisTemplate;
-
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+    private RedisRepository redisRepository;
 
     @InjectMocks
     private KisApiClient kisApiClient;
@@ -49,7 +45,6 @@ class KisApiClientTest {
         ReflectionTestUtils.setField(kisApiClient, "baseUrl", "https://openapi.koreainvestment.com");
         ReflectionTestUtils.setField(kisApiClient, "appKey", "test-app-key");
         ReflectionTestUtils.setField(kisApiClient, "appSecret", "test-app-secret");
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     private void setupMockOkHttpClient(String responseBody, int responseCode) throws IOException {
@@ -85,7 +80,7 @@ class KisApiClientTest {
     void getAccessToken_success() throws Exception {
         String mockResponse = "{\"access_token\":\"test-access-token\",\"token_type\":\"Bearer\",\"expires_in\":86400}";
         setupMockOkHttpClient(mockResponse, 200);
-        when(valueOperations.get("kis:access-token")).thenReturn(null);
+        when(redisRepository.get("kis:access-token")).thenReturn(null);
         when(objectMapper.readValue(mockResponse, Map.class))
                 .thenReturn(Map.of("access_token", "test-access-token", "expires_in", 86400));
 
@@ -93,7 +88,7 @@ class KisApiClientTest {
 
         assertNotNull(token);
         assertEquals("test-access-token", token);
-        verify(valueOperations).set(eq("kis:access-token"), eq("test-access-token"), eq(Duration.ofHours(6)));
+        verify(redisRepository).set(eq("kis:access-token"), eq("test-access-token"), eq(Duration.ofHours(6)));
     }
 
     @Test
@@ -101,7 +96,7 @@ class KisApiClientTest {
     void getAccessToken_apiFailure() throws Exception {
         String mockResponse = "{\"error\":\"internal_error\"}";
         setupMockOkHttpClient(mockResponse, 500);
-        when(valueOperations.get("kis:access-token")).thenReturn(null);
+        when(redisRepository.get("kis:access-token")).thenReturn(null);
 
         assertThrows(RuntimeException.class, () -> kisApiClient.getAccessToken());
     }
@@ -109,12 +104,12 @@ class KisApiClientTest {
     @Test
     @DisplayName("getCachedAccessToken - 캐시된 토큰이 유효한 경우")
     void getCachedAccessToken_validToken() throws Exception {
-        when(valueOperations.get("kis:access-token")).thenReturn("cached-token");
+        when(redisRepository.get("kis:access-token")).thenReturn("cached-token");
 
         String token = kisApiClient.getCachedAccessToken();
 
         assertEquals("cached-token", token);
-        verify(valueOperations, never()).set(any(), any(), any(Duration.class));
+        verify(redisRepository, never()).set(any(), any(), any(Duration.class));
     }
 
     @Test
@@ -122,7 +117,7 @@ class KisApiClientTest {
     void getCachedAccessToken_noCachedToken() throws Exception {
         String mockResponse = "{\"access_token\":\"new-token\",\"token_type\":\"Bearer\",\"expires_in\":86400}";
         setupMockOkHttpClient(mockResponse, 200);
-        when(valueOperations.get("kis:access-token")).thenReturn(null);
+        when(redisRepository.get("kis:access-token")).thenReturn(null);
         when(objectMapper.readValue(mockResponse, Map.class))
                 .thenReturn(Map.of("access_token", "new-token", "expires_in", 86400));
 
@@ -137,7 +132,7 @@ class KisApiClientTest {
     void getCachedAccessToken_expiredToken() throws Exception {
         String mockResponse = "{\"access_token\":\"new-token\",\"token_type\":\"Bearer\",\"expires_in\":86400}";
         setupMockOkHttpClient(mockResponse, 200);
-        when(valueOperations.get("kis:access-token")).thenReturn(null);
+        when(redisRepository.get("kis:access-token")).thenReturn(null);
         when(objectMapper.readValue(mockResponse, Map.class))
                 .thenReturn(Map.of("access_token", "new-token", "expires_in", 86400));
 

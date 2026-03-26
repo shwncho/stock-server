@@ -2,12 +2,12 @@ package com.stock.stockserver.infrastructure.external;
 
 import com.stock.stockserver.dto.DailyPriceDto;
 import com.stock.stockserver.dto.VolumeRankDto;
+import com.stock.stockserver.infrastructure.persistence.RedisRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import okhttp3.*;
@@ -43,7 +43,7 @@ public class KisApiClient {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final OkHttpClient okHttpClient;
-    private final StringRedisTemplate redisTemplate;
+    private final RedisRepository redisRepository;
 
 
     /**
@@ -252,7 +252,7 @@ public class KisApiClient {
                 throw new RuntimeException("KIS access token 응답에 access_token이 없습니다.");
             }
 
-            redisTemplate.opsForValue().set(ACCESS_TOKEN_KEY, accessToken, ACCESS_TOKEN_TTL);
+            redisRepository.set(ACCESS_TOKEN_KEY, accessToken, ACCESS_TOKEN_TTL);
 
             return accessToken;
         } catch (Exception e) {
@@ -271,7 +271,7 @@ public class KisApiClient {
     }
 
     private String readCachedAccessToken() {
-        return redisTemplate.opsForValue().get(ACCESS_TOKEN_KEY);
+        return redisRepository.get(ACCESS_TOKEN_KEY);
     }
 
     private String buildQueryString(Map<String, String> params) throws Exception {
