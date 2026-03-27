@@ -360,7 +360,7 @@ API 요청 → Kafka Producer → [analysis-requests 토픽] → Consumer → �
 ### DLT 재시도 로직
 
 ```java
-@Scheduled(cron = "0 */5 * * * *")  // 5분마다 실행
+@Scheduled(initialDelay = 60000, fixedDelay = 300000)  // 5분마다 실행
 public void retryFailedRequests() {
     List<FailedAnalysisRequest> failedRequests = 
         failedAnalysisRequestRepository.findByProcessedFalse();

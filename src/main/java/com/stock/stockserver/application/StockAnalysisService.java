@@ -6,7 +6,6 @@ import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.domain.repository.AnalysisJobStore;
 import com.stock.stockserver.domain.repository.LLMAnalysisResultRepository;
 import com.stock.stockserver.dto.AnalysisResultDto;
-import com.stock.stockserver.dto.AnalysisStatusDto;
 import com.stock.stockserver.dto.LLMAnalysisResponseDto;
 import com.stock.stockserver.dto.StockDataDto;
 import com.stock.stockserver.infrastructure.external.LLMApiClient;

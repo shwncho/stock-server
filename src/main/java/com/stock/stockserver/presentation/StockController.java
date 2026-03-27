@@ -5,6 +5,8 @@ import com.stock.stockserver.dto.VolumeRankDto;
 import com.stock.stockserver.infrastructure.external.KisApiClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -20,11 +22,8 @@ public class StockController {
         return kisApiClient.getVolumeRankStocks();
     }
 
-    /**
-     * 현재 테스트용 api, 나중에 사용할 시 stockCode와 days를 파라미터로 받아야함
-     */
     @GetMapping("/daily-price")
-    public List<DailyPriceDto> getPriceChart() {
-        return kisApiClient.getDailyData("000660",10);
+    public List<DailyPriceDto> getPriceChart(@RequestParam String stockCode, @RequestParam int days) {
+        return kisApiClient.getDailyData(stockCode,days);
     }
 }
