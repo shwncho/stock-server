@@ -29,12 +29,9 @@ public class AnalysisConsumer {
             log.info("Received analysis request from Kafka: analysisId={}", analysisId);
 
             analysisService.saveJob(analysisId);
-            //비동기 실행
             analysisService.runFullAnalysis(analysisId);
-            //즉시 커밋
             ack.acknowledge();
-
-            log.info("Analysis completed: analysisId={}", analysisId);
+            log.info("Analysis completed and ACK'd: analysisId={}", analysisId);
         } catch (Exception e) {
             log.error("Failed to process analysis request: message={}", message, e);
             throw new RuntimeException("Analysis processing failed", e);

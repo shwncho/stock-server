@@ -11,7 +11,6 @@ import com.stock.stockserver.dto.StockDataDto;
 import com.stock.stockserver.infrastructure.external.LLMApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +32,6 @@ public class StockAnalysisService {
     private final AnalysisJobStore jobStore;
     private final Executor llmApiExecutor;
 
-    @Async("analysisExecutor")
     public void runFullAnalysis(String analysisId) {
         try {
             List<LLMAnalysisResult> results = runFullAnalysisInternal(analysisId);
@@ -49,6 +47,7 @@ public class StockAnalysisService {
                     .status(AnalysisStatus.FAILED)
                     .errorMessage(e.getMessage())
                     .build());
+            throw new RuntimeException("분석 실패: " + analysisId, e);
         }
     }
 
