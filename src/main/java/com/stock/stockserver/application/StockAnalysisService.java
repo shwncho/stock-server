@@ -12,7 +12,6 @@ import com.stock.stockserver.infrastructure.external.LLMApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -29,6 +28,7 @@ public class StockAnalysisService {
     private final StockDataCollectionService dataCollectionService;
     private final LLMApiClient llmApiClient;
     private final LLMAnalysisResultRepository analysisResultRepository;
+    private final AnalysisResultSaveService analysisResultSaveService;
     private final AnalysisJobStore jobStore;
     private final Executor llmApiExecutor;
 
@@ -51,7 +51,6 @@ public class StockAnalysisService {
         }
     }
 
-    @Transactional
     public List<LLMAnalysisResult> runFullAnalysisInternal(String analysisId) {
         log.info("\n");
         log.info("=====================================");
@@ -93,8 +92,7 @@ public class StockAnalysisService {
                 .collect(Collectors.toList());
 
         if (!results.isEmpty()) {
-            analysisResultRepository.saveAll(results);
-            log.info("DB 배치 저장 완료: {} 개", results.size());
+            analysisResultSaveService.saveAll(results);
         }
 
         generateReport(results);
