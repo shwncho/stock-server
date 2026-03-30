@@ -65,10 +65,10 @@ public class DltRetryService {
         AnalysisEvent event = AnalysisEvent.of(analysisId);
         String message = objectMapper.writeValueAsString(event);
         
-        kafkaTemplate.send(ANALYSIS_TOPIC, analysisId, message);
-        
+        kafkaTemplate.send(ANALYSIS_TOPIC, analysisId, message).get();  // 전송 완료까지 대기, 실패 시 예외 throw
+
         log.info("DLT 메시지 재전송 성공: analysisId={}", analysisId);
-        
+
         failedRequest.incrementRetryCount();
         failedRequest.markAsProcessed();
         failedAnalysisRequestRepository.save(failedRequest);
