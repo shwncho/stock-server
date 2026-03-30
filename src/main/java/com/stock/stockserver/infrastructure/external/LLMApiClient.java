@@ -27,7 +27,7 @@ public class LLMApiClient {
 
     @Cacheable(
             cacheNames = "llmAnalysisCache",
-            key = "#stockData.stockCode() + '_' + T(java.time.LocalDateTime).now().getHour()",
+            key = "#stockData.stockCode() + '_' + T(java.time.LocalDate).now().toString()",
             unless = "#result == null"
     )
     public LLMAnalysisResponseDto analyzeStock(StockDataDto stockData) {
@@ -106,9 +106,9 @@ public class LLMApiClient {
 
             JsonNode root = objectMapper.readTree(jsonPart);
 
-            String recommendationStr = root.get("recommendation").asText();
-            double confidence = root.get("confidence").asDouble();
-            String summary = root.get("summary").asText();
+            String recommendationStr = root.path("recommendation").asText("");
+            double confidence = root.path("confidence").asDouble(0.0);
+            String summary = root.path("summary").asText("");
 
             return LLMAnalysisResponseDto.builder()
                     .recommendation(
