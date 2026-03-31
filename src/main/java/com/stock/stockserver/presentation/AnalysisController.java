@@ -1,11 +1,9 @@
 package com.stock.stockserver.presentation;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stock.stockserver.application.AnalysisRequestPublisher;
 import com.stock.stockserver.application.StockAnalysisService;
 import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
-import com.stock.stockserver.dto.AnalysisEvent;
 import com.stock.stockserver.dto.AnalysisResultDto;
 import com.stock.stockserver.dto.AnalysisStatusDto;
 import com.stock.stockserver.dto.PostAnalysisDto;
@@ -13,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,23 +23,15 @@ import java.util.UUID;
 public class AnalysisController {
 
     private final StockAnalysisService analysisService;
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final ObjectMapper objectMapper;
-
-    private static final String ANALYSIS_TOPIC = "analysis-requests";
+    private final AnalysisRequestPublisher analysisRequestPublisher;
 
     /**
      * 분석 실행
      */
     @PostMapping("/run")
-    public ResponseEntity<PostAnalysisDto> runAnalysis() throws JsonProcessingException {
+    public ResponseEntity<PostAnalysisDto> runAnalysis() {
         String analysisId = UUID.randomUUID().toString();
-
-        AnalysisEvent event = AnalysisEvent.of(analysisId);
-        String message = objectMapper.writeValueAsString(event);
-        kafkaTemplate.send(ANALYSIS_TOPIC, analysisId, message);
-
-        log.info("Analysis request sent to Kafka: analysisId={}", analysisId);
+        analysisRequestPublisher.publish(analysisId);
 
         return ResponseEntity.ok(
                 new PostAnalysisDto(

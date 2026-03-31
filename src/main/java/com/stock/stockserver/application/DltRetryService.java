@@ -1,12 +1,9 @@
 package com.stock.stockserver.application;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.domain.entity.FailedAnalysisRequest;
 import com.stock.stockserver.domain.repository.FailedAnalysisRequestRepository;
-import com.stock.stockserver.dto.AnalysisEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +17,8 @@ import java.util.List;
 public class DltRetryService {
 
     private final FailedAnalysisRequestRepository failedAnalysisRequestRepository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final ObjectMapper objectMapper;
+    private final AnalysisRequestPublisher analysisRequestPublisher;
 
-    private static final String ANALYSIS_TOPIC = "analysis-requests";
     private static final int MAX_RETRY_COUNT = 3;
 
     @Scheduled(initialDelay = 60000, fixedDelay = 300000)
@@ -62,10 +57,7 @@ public class DltRetryService {
             return;
         }
         
-        AnalysisEvent event = AnalysisEvent.of(analysisId);
-        String message = objectMapper.writeValueAsString(event);
-        
-        kafkaTemplate.send(ANALYSIS_TOPIC, analysisId, message).get();  // 전송 완료까지 대기, 실패 시 예외 throw
+        analysisRequestPublisher.publishAndWait(analysisId);
 
         log.info("DLT 메시지 재전송 성공: analysisId={}", analysisId);
 

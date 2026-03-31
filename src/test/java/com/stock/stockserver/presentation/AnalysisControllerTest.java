@@ -1,6 +1,6 @@
 package com.stock.stockserver.presentation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stock.stockserver.application.AnalysisRequestPublisher;
 import com.stock.stockserver.application.StockAnalysisService;
 import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
@@ -15,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.KafkaTemplate;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,24 +31,18 @@ class AnalysisControllerTest {
     private StockAnalysisService analysisService;
 
     @Mock
-    private KafkaTemplate<String, String> kafkaTemplate;
-
-    @Mock
-    private ObjectMapper objectMapper;
+    private AnalysisRequestPublisher analysisRequestPublisher;
 
     @InjectMocks
     private AnalysisController analysisController;
 
     @Test
     @DisplayName("runAnalysis - 분석 요청 시 200 응답")
-    void runAnalysis_success() throws Exception {
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"analysisId\":\"test-id\"}");
-        doReturn(null).when(kafkaTemplate).send(anyString(), anyString(), anyString());
-
+    void runAnalysis_success() {
         ResponseEntity<?> response = analysisController.runAnalysis();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(kafkaTemplate, times(1)).send(anyString(), anyString(), anyString());
+        verify(analysisRequestPublisher, times(1)).publish(anyString());
     }
 
     @Test
