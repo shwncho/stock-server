@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -87,6 +88,7 @@ public class StockAnalysisService {
                 .collect(Collectors.toList());
 
         List<LLMAnalysisResult> results = futures.stream()
+                .map(f -> f.orTimeout(60, TimeUnit.SECONDS))
                 .map(CompletableFuture::join)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
