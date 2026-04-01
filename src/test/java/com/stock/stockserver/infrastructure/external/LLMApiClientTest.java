@@ -19,7 +19,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -80,18 +79,18 @@ class LLMApiClientTest {
         );
 
         JsonNode recommendationNode = mock(JsonNode.class);
-        when(recommendationNode.asText()).thenReturn("BUY");
+        when(recommendationNode.asText("")).thenReturn("BUY");
         
         JsonNode confidenceNode = mock(JsonNode.class);
-        when(confidenceNode.asDouble()).thenReturn(0.85);
+        when(confidenceNode.asDouble(0.0)).thenReturn(0.85);
         
         JsonNode summaryNode = mock(JsonNode.class);
-        when(summaryNode.asText()).thenReturn("Good stock");
+        when(summaryNode.asText("")).thenReturn("Good stock");
         
         JsonNode mockJsonNode = mock(JsonNode.class);
-        when(mockJsonNode.get("recommendation")).thenReturn(recommendationNode);
-        when(mockJsonNode.get("confidence")).thenReturn(confidenceNode);
-        when(mockJsonNode.get("summary")).thenReturn(summaryNode);
+        when(mockJsonNode.path("recommendation")).thenReturn(recommendationNode);
+        when(mockJsonNode.path("confidence")).thenReturn(confidenceNode);
+        when(mockJsonNode.path("summary")).thenReturn(summaryNode);
         
         when(objectMapper.readTree(anyString())).thenReturn(mockJsonNode);
 
@@ -127,18 +126,18 @@ class LLMApiClientTest {
         );
 
         JsonNode recommendationNode = mock(JsonNode.class);
-        when(recommendationNode.asText()).thenReturn("HOLD");
+        when(recommendationNode.asText("")).thenReturn("HOLD");
         
         JsonNode confidenceNode = mock(JsonNode.class);
-        when(confidenceNode.asDouble()).thenReturn(0.6);
+        when(confidenceNode.asDouble(0.0)).thenReturn(0.6);
         
         JsonNode summaryNode = mock(JsonNode.class);
-        when(summaryNode.asText()).thenReturn("Hold it");
+        when(summaryNode.asText("")).thenReturn("Hold it");
         
         JsonNode mockJsonNode = mock(JsonNode.class);
-        when(mockJsonNode.get("recommendation")).thenReturn(recommendationNode);
-        when(mockJsonNode.get("confidence")).thenReturn(confidenceNode);
-        when(mockJsonNode.get("summary")).thenReturn(summaryNode);
+        when(mockJsonNode.path("recommendation")).thenReturn(recommendationNode);
+        when(mockJsonNode.path("confidence")).thenReturn(confidenceNode);
+        when(mockJsonNode.path("summary")).thenReturn(summaryNode);
         
         when(objectMapper.readTree(anyString())).thenReturn(mockJsonNode);
 
