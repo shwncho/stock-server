@@ -2,7 +2,6 @@ package com.stock.stockserver.infrastructure.external;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.infrastructure.persistence.RedisRepository;
-import okhttp3.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,8 +11,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 
@@ -32,10 +31,20 @@ class KisApiClientTest {
     private ObjectMapper objectMapper;
 
     @Mock
-    private okhttp3.Call mockCall;
+    private RedisRepository redisRepository;
 
     @Mock
-    private RedisRepository redisRepository;
+    private WebClient.RequestBodyUriSpec requestBodyUriSpec;
+
+    @Mock
+    private WebClient.RequestBodySpec requestBodySpec;
+
+    @Mock
+    @SuppressWarnings("rawtypes")
+    private WebClient.RequestHeadersSpec requestHeadersSpec;
+
+    @Mock
+    private WebClient.ResponseSpec responseSpec;
 
     @InjectMocks
     private KisApiClient kisApiClient;
@@ -47,42 +56,21 @@ class KisApiClientTest {
         ReflectionTestUtils.setField(kisApiClient, "appSecret", "test-app-secret");
     }
 
-    private void setupMockOkHttpClient(String responseBody, int responseCode) throws IOException {
-        OkHttpClient mockedClient = mock(OkHttpClient.class);
-        
-        RequestBody requestBody = RequestBody.create(
-                MediaType.parse("application/json"),
-                "{\"grant_type\":\"client_credentials\",\"appkey\":\"test-app-key\",\"appsecret\":\"test-app-secret\"}"
-        );
-        
-        Request request = new Request.Builder()
-                .url("https://openapi.koreainvestment.com/oauth2/tokenP")
-                .post(requestBody)
-                .build();
-
-        ResponseBody body = ResponseBody.create(responseBody, MediaType.parse("application/json"));
-        Response response = new Response.Builder()
-                .request(request)
-                .protocol(Protocol.HTTP_1_1)
-                .code(responseCode)
-                .message("OK")
-                .body(body)
-                .build();
-
-        when(mockedClient.newCall(any(Request.class))).thenReturn(mockCall);
-        when(mockCall.execute()).thenReturn(response);
-        
-        ReflectionTestUtils.setField(kisApiClient, "okHttpClient", mockedClient);
+    @SuppressWarnings("unchecked")
+    private void setupWebClientPost(Map<?, ?> responseBody) {
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(Map.class)).thenReturn(Mono.just(responseBody));
     }
 
     @Test
     @DisplayName("getAccessToken - 성공적인 토큰 발급")
     void getAccessToken_success() throws Exception {
-        String mockResponse = "{\"access_token\":\"test-access-token\",\"token_type\":\"Bearer\",\"expires_in\":86400}";
-        setupMockOkHttpClient(mockResponse, 200);
         when(redisRepository.get("kis:access-token")).thenReturn(null);
-        when(objectMapper.readValue(mockResponse, Map.class))
-                .thenReturn(Map.of("access_token", "test-access-token", "expires_in", 86400));
+        setupWebClientPost(Map.of("access_token", "test-access-token", "expires_in", 86400));
 
         String token = kisApiClient.getAccessToken();
 
@@ -92,53 +80,51 @@ class KisApiClientTest {
     }
 
     @Test
-    @DisplayName("getAccessToken - API 호출 실패 시 예외 발생")
-    void getAccessToken_apiFailure() throws Exception {
-        String mockResponse = "{\"error\":\"internal_error\"}";
-        setupMockOkHttpClient(mockResponse, 500);
+    @DisplayName("getAccessToken - 응답에 access_token 없을 시 예외 발생")
+    void getAccessToken_missingToken() throws Exception {
         when(redisRepository.get("kis:access-token")).thenReturn(null);
+        setupWebClientPost(Map.of("error", "internal_error"));
 
         assertThrows(RuntimeException.class, () -> kisApiClient.getAccessToken());
     }
 
     @Test
-    @DisplayName("getCachedAccessToken - 캐시된 토큰이 유효한 경우")
-    void getCachedAccessToken_validToken() throws Exception {
+    @DisplayName("getAccessToken - WebClient 호출 실패 시 예외 발생")
+    @SuppressWarnings("unchecked")
+    void getAccessToken_webClientFailure() {
+        when(redisRepository.get("kis:access-token")).thenReturn(null);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(Map.class)).thenReturn(Mono.error(new RuntimeException("API 호출 실패")));
+
+        assertThrows(RuntimeException.class, () -> kisApiClient.getAccessToken());
+    }
+
+    @Test
+    @DisplayName("getAccessToken - 캐시된 토큰이 유효한 경우 API 호출 없이 반환")
+    void getAccessToken_returnsCachedToken() throws Exception {
         when(redisRepository.get("kis:access-token")).thenReturn("cached-token");
 
-        String token = kisApiClient.getCachedAccessToken();
+        String token = kisApiClient.getAccessToken();
 
         assertEquals("cached-token", token);
         verify(redisRepository, never()).set(any(), any(), any(Duration.class));
+        verify(webClient, never()).post();
     }
 
     @Test
-    @DisplayName("getCachedAccessToken - 캐시된 토큰이 없는 경우 새로 발급")
-    void getCachedAccessToken_noCachedToken() throws Exception {
-        String mockResponse = "{\"access_token\":\"new-token\",\"token_type\":\"Bearer\",\"expires_in\":86400}";
-        setupMockOkHttpClient(mockResponse, 200);
+    @DisplayName("getAccessToken - 캐시 없는 경우 새로 발급 후 저장")
+    void getAccessToken_fetchesWhenNoCachedToken() throws Exception {
         when(redisRepository.get("kis:access-token")).thenReturn(null);
-        when(objectMapper.readValue(mockResponse, Map.class))
-                .thenReturn(Map.of("access_token", "new-token", "expires_in", 86400));
+        setupWebClientPost(Map.of("access_token", "new-token", "expires_in", 86400));
 
-        String token = kisApiClient.getCachedAccessToken();
+        String token = kisApiClient.getAccessToken();
 
         assertNotNull(token);
         assertEquals("new-token", token);
-    }
-
-    @Test
-    @DisplayName("getCachedAccessToken - 토큰이 만료된 경우 새로 발급")
-    void getCachedAccessToken_expiredToken() throws Exception {
-        String mockResponse = "{\"access_token\":\"new-token\",\"token_type\":\"Bearer\",\"expires_in\":86400}";
-        setupMockOkHttpClient(mockResponse, 200);
-        when(redisRepository.get("kis:access-token")).thenReturn(null);
-        when(objectMapper.readValue(mockResponse, Map.class))
-                .thenReturn(Map.of("access_token", "new-token", "expires_in", 86400));
-
-        String token = kisApiClient.getCachedAccessToken();
-
-        assertNotNull(token);
-        assertEquals("new-token", token);
+        verify(redisRepository).set(eq("kis:access-token"), eq("new-token"), eq(Duration.ofHours(6)));
     }
 }

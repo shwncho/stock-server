@@ -1,16 +1,15 @@
 package com.stock.stockserver.infrastructure.external;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.dto.DailyPriceDto;
 import com.stock.stockserver.dto.VolumeRankDto;
 import com.stock.stockserver.infrastructure.persistence.RedisRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import okhttp3.*;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -21,6 +20,8 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+
+import static org.springframework.http.HttpMethod.valueOf;
 
 @Component
 @RequiredArgsConstructor
@@ -42,7 +43,6 @@ public class KisApiClient {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final OkHttpClient okHttpClient;
     private final RedisRepository redisRepository;
 
 
@@ -189,10 +189,10 @@ public class KisApiClient {
                 ? baseUrl + endpoint + "?" + queryString
                 : baseUrl + endpoint;
 
-        String accessToken = getCachedAccessToken();
+        String accessToken = getAccessToken();
 
         try {
-            String responseBody = webClient.method(org.springframework.http.HttpMethod.valueOf(method))
+            String responseBody = webClient.method(valueOf(method))
                     .uri(fullUrl)
                     .header("Authorization", "Bearer " + accessToken)
                     .header("appkey", appKey)
@@ -211,70 +211,46 @@ public class KisApiClient {
         }
     }
 
-    public String getAccessToken() throws Exception {
-        String cachedToken = readCachedAccessToken();
+    public String getAccessToken() {
+        String cachedToken = redisRepository.get(ACCESS_TOKEN_KEY);
         if (cachedToken != null) {
             return cachedToken;
         }
+        return fetchNewAccessToken();
+    }
 
-        String jsonBody = String.format(
-                "{\"grant_type\":\"client_credentials\",\"appkey\":\"%s\",\"appsecret\":\"%s\"}",
-                appKey, appSecret
+    private String fetchNewAccessToken() {
+        Map<String, String> requestBody = Map.of(
+                "grant_type", "client_credentials",
+                "appkey", appKey,
+                "appsecret", appSecret
         );
 
-        log.info("Request URL: {}", baseUrl + TOKEN_PATH);
-        log.info("Request Body: {}", jsonBody);
+        log.info("KIS 액세스 토큰 발급 요청: {}", baseUrl + TOKEN_PATH);
 
-        RequestBody body = RequestBody.create(
-                MediaType.parse("application/json"),
-                jsonBody
-        );
+        Map<?, ?> response = webClient.post()
+                .uri(baseUrl + TOKEN_PATH)
+                .header("content-type", "application/json")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
 
-        Request request = new Request.Builder()
-                .url(baseUrl + TOKEN_PATH)
-                .post(body)
-                .addHeader("content-type", "application/json")
-                .build();
-
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            String responseBody = response.body().string();
-            log.info("Response Code: {}", response.code());
-            log.info("Response Body: {}", responseBody);
-
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("API 호출 실패: " + response.code() + ", Body: " + responseBody);
-            }
-
-            Map<String, Object> tokenResponse = objectMapper.readValue(responseBody, Map.class);
-            String accessToken = (String) tokenResponse.get("access_token");
-
-            if (accessToken == null || accessToken.isBlank()) {
-                throw new RuntimeException("KIS access token 응답에 access_token이 없습니다.");
-            }
-
-            redisRepository.set(ACCESS_TOKEN_KEY, accessToken, ACCESS_TOKEN_TTL);
-
-            return accessToken;
-        } catch (Exception e) {
-            log.error("토큰 발급 중 오류 발생", e);
-            throw e;
-        }
-    }
-
-    public String getCachedAccessToken() throws Exception {
-        String cachedToken = readCachedAccessToken();
-        if (cachedToken != null) {
-            return cachedToken;
+        if (response == null) {
+            throw new RuntimeException("KIS 토큰 발급 응답이 없습니다.");
         }
 
-        return getAccessToken();
+        String accessToken = (String) response.get("access_token");
+
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new RuntimeException("KIS access token 응답에 access_token이 없습니다.");
+        }
+
+        redisRepository.set(ACCESS_TOKEN_KEY, accessToken, ACCESS_TOKEN_TTL);
+        return accessToken;
     }
 
-    private String readCachedAccessToken() {
-        return redisRepository.get(ACCESS_TOKEN_KEY);
-    }
-
-    private String buildQueryString(Map<String, String> params) throws Exception {
+    private String buildQueryString(Map<String, String> params) {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
 
