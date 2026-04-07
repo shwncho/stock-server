@@ -35,7 +35,9 @@ spring:
 
 server:
   port: 8080
-# KIS API ??
+  shutdown: graceful
+
+# KIS API
 kis:
   api:
     base-url: https://openapi.koreainvestment.com:9443
@@ -64,7 +66,6 @@ llm:
     max-tokens: 2000
 
 
-# ?? ??
 analysis:
   top-stocks: 10
   days-back: 60
