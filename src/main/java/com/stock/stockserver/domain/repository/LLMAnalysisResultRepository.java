@@ -12,7 +12,8 @@ public interface LLMAnalysisResultRepository extends JpaRepository<LLMAnalysisRe
     Optional<LLMAnalysisResult> findByStockCodeAndAnalysisDate(String stockCode, LocalDate analysisDate);
 
     List<LLMAnalysisResult> findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate analysisDate);
-    
+
+    List<LLMAnalysisResult> findTop20ByAnalysisDateOrderByCreatedAtDesc(LocalDate analysisDate);
+
     List<LLMAnalysisResult> findByAnalysisIdOrderByCreatedAtDesc(String analysisId);
 }
-

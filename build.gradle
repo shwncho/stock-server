@@ -43,6 +43,8 @@ implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     
     // Retry
     implementation 'org.springframework.retry:spring-retry:2.0.4'
+    implementation 'io.github.resilience4j:resilience4j-ratelimiter:2.4.0'
+    implementation 'io.github.resilience4j:resilience4j-retry:2.4.0'
 
     // Kafka
     implementation 'org.springframework.kafka:spring-kafka'

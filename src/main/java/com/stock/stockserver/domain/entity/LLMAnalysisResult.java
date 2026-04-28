@@ -1,5 +1,6 @@
 package com.stock.stockserver.domain.entity;
 
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.RecommendationStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -29,6 +30,10 @@ public class LLMAnalysisResult {
     @Column(nullable = false, length = 100)
     private String stockName;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AnalysisTarget target;
+
     @Column(nullable = false)
     private LocalDate analysisDate;
 
@@ -52,6 +57,7 @@ public class LLMAnalysisResult {
     @Builder
     private LLMAnalysisResult(String stockCode,
                               String stockName,
+                              AnalysisTarget target,
                               LocalDate analysisDate,
                               String llmAnalysis,
                               RecommendationStatus recommendation,
@@ -59,6 +65,7 @@ public class LLMAnalysisResult {
 
         this.stockCode = stockCode;
         this.stockName = stockName;
+        this.target = target == null ? AnalysisTarget.DOMESTIC : target;
         this.analysisDate = analysisDate;
         this.llmAnalysis = llmAnalysis;
         this.recommendation = recommendation;

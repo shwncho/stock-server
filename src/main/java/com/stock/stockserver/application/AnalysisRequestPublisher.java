@@ -1,8 +1,14 @@
 package com.stock.stockserver.application;
 
+import com.stock.stockserver.domain.AnalysisTarget;
+
 public interface AnalysisRequestPublisher {
 
     void publish(String analysisId);
 
-    void publishAndWait(String analysisId) throws Exception;
+    void publish(String analysisId, AnalysisTarget target);
+
+    void publishAndWaitForAck(String analysisId) throws Exception;
+
+    void publishAndWaitForAck(String analysisId, AnalysisTarget target) throws Exception;
 }

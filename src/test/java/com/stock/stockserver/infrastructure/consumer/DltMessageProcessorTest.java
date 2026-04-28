@@ -1,6 +1,7 @@
 package com.stock.stockserver.infrastructure.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.entity.FailedAnalysisRequest;
 import com.stock.stockserver.domain.repository.FailedAnalysisRequestRepository;
 import com.stock.stockserver.dto.AnalysisEvent;
@@ -40,7 +41,7 @@ class DltMessageProcessorTest {
     @DisplayName("processDltMessage - 정상적인 메시지 처리")
     void processDltMessage_success() throws Exception {
         String message = "{\"analysisId\":\"test-id\",\"requestedAt\":\"2024-01-01T10:00:00\"}";
-        AnalysisEvent event = new AnalysisEvent("test-id", LocalDateTime.now());
+        AnalysisEvent event = new AnalysisEvent("test-id", AnalysisTarget.ALL, LocalDateTime.now());
         
         when(objectMapper.readValue(message, AnalysisEvent.class)).thenReturn(event);
         when(failedAnalysisRequestRepository.save(any(FailedAnalysisRequest.class)))

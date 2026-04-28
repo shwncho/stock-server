@@ -44,13 +44,14 @@ public class DltMessageProcessor {
     }
 
     private void handleDltEvent(AnalysisEvent event) {
-        log.warn("분석 실패로 인한 DLT 라우팅: analysisId={}, requestedAt={}", 
-                event.analysisId(), event.requestedAt());
+        log.warn("분석 실패로 인한 DLT 라우팅: analysisId={}, target={}, requestedAt={}",
+                event.analysisId(), event.resolvedTarget(), event.requestedAt());
         
         FailedAnalysisRequest failedRequest = FailedAnalysisRequest.builder()
                 .analysisId(event.analysisId())
-                .originalMessage(String.format("{\"analysisId\":\"%s\",\"requestedAt\":\"%s\"}", 
-                        event.analysisId(), event.requestedAt()))
+                .originalMessage(String.format(
+                        "{\"analysisId\":\"%s\",\"target\":\"%s\",\"requestedAt\":\"%s\"}",
+                        event.analysisId(), event.resolvedTarget(), event.requestedAt()))
                 .errorMessage("Consumer 처리 실패 - 최대 재시도 횟수 초과")
                 .failedAt(LocalDateTime.now())
                 .processed(false)

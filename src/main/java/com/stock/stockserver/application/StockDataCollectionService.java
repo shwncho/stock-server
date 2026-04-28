@@ -1,6 +1,7 @@
 package com.stock.stockserver.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.entity.DailyPrice;
 import com.stock.stockserver.domain.entity.StockData;
 import com.stock.stockserver.domain.repository.DailyPriceRepository;
@@ -42,11 +43,27 @@ public class StockDataCollectionService {
      */
     @Transactional
     public List<StockDataDto> collectStockData() {
-        log.info("=== 주식 데이터 수집 시작 (병렬 처리) ===");
+        return collectStockData(AnalysisTarget.DOMESTIC);
+    }
+
+    @Transactional
+    public List<StockDataDto> collectStockData(AnalysisTarget target) {
+        log.info("=== 주식 데이터 수집 시작: target={} (병렬 처리) ===", target);
+
+        List<StockDataDto> stockDataList = target.expand().stream()
+                .flatMap(expandedTarget -> collectStockDataByTarget(expandedTarget).stream())
+                .collect(Collectors.toList());
+
+        log.info("=== 주식 데이터 수집 완료: target={}, count={} ===\n", target, stockDataList.size());
+        return stockDataList;
+    }
+
+    private List<StockDataDto> collectStockDataByTarget(AnalysisTarget target) {
+        log.info("시장별 데이터 수집 시작: {}", target);
 
         // 1단계: 거래량 Top 10 조회
-        List<VolumeRankDto> topStocks = kisApiClient.getVolumeRankStocks();
-        log.info("Step 1: 거래량 Top 10 조회 완료 - {} 개", topStocks.size());
+        List<VolumeRankDto> topStocks = kisApiClient.getVolumeRankStocks(target);
+        log.info("Step 1: {} 거래량 Top 10 조회 완료 - {} 개", target, topStocks.size());
 
         // 2단계: 각 종목별 데이터 수집 (병렬 처리)
         List<CompletableFuture<StockDataDto>> futures = topStocks.stream()
@@ -54,7 +71,8 @@ public class StockDataCollectionService {
                     try {
                         return collectSingleStockData(volumeRank);
                     } catch (Exception e) {
-                        log.error("데이터 수집 실패: {}", volumeRank.stockCode(), e);
+                        log.error("데이터 수집 실패: target={}, exchange={}, stockCode={}",
+                                volumeRank.target(), volumeRank.exchangeCode(), volumeRank.stockCode(), e);
                         return null;
                     }
                 }, kisApiExecutor))
@@ -66,8 +84,7 @@ public class StockDataCollectionService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
-        log.info("Step 2: 데이터 수집 완료 - {} 개", stockDataList.size());
-        log.info("=== 주식 데이터 수집 완료 ===\n");
+        log.info("Step 2: {} 데이터 수집 완료 - {} 개", target, stockDataList.size());
 
         return stockDataList;
     }
@@ -79,13 +96,20 @@ public class StockDataCollectionService {
         String stockCode = volumeRank.stockCode();
         String stockName = volumeRank.stockName();
 
-        log.debug("데이터 수집: {} ({})", stockCode, stockName);
+        log.debug("데이터 수집: target={}, exchange={}, stockName={}, stockCode={}",
+                volumeRank.target(), volumeRank.exchangeCode(), stockName, stockCode);
 
         // 1. 일봉 데이터 조회 및 저장
-        List<DailyPriceDto> dailyPriceDtos = kisApiClient.getDailyData(stockCode, daysBack);
+        List<DailyPriceDto> dailyPriceDtos = kisApiClient.getDailyData(
+                volumeRank.target(),
+                volumeRank.exchangeCode(),
+                stockCode,
+                daysBack
+        );
 
         if (dailyPriceDtos == null || dailyPriceDtos.isEmpty()) {
-            log.warn("일봉 데이터 없음: {}", stockCode);
+            log.warn("일봉 데이터 없음: target={}, exchange={}, stockName={}, stockCode={}",
+                    volumeRank.target(), volumeRank.exchangeCode(), stockName, stockCode);
             return null;
         }
 
@@ -109,6 +133,8 @@ public class StockDataCollectionService {
 
         // 3. StockDataDto 생성
         StockDataDto stockData = StockDataDto.builder()
+                .target(volumeRank.target())
+                .exchangeCode(volumeRank.exchangeCode())
                 .stockCode(stockCode)
                 .stockName(stockName)
                 .currentPrice(BigDecimal.valueOf(volumeRank.currentPrice()))
@@ -137,7 +163,8 @@ public class StockDataCollectionService {
 
         stockDataRepository.save(entity);
 
-        log.debug("데이터 수집 완료: {}", stockCode);
+        log.debug("데이터 수집 완료: target={}, exchange={}, stockName={}, stockCode={}",
+                volumeRank.target(), volumeRank.exchangeCode(), stockName, stockCode);
         return stockData;
     }
 

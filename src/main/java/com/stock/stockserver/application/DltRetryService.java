@@ -1,7 +1,10 @@
 package com.stock.stockserver.application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.entity.FailedAnalysisRequest;
 import com.stock.stockserver.domain.repository.FailedAnalysisRequestRepository;
+import com.stock.stockserver.dto.AnalysisEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,6 +21,7 @@ public class DltRetryService {
 
     private final FailedAnalysisRequestRepository failedAnalysisRequestRepository;
     private final AnalysisRequestPublisher analysisRequestPublisher;
+    private final ObjectMapper objectMapper;
 
     private static final int MAX_RETRY_COUNT = 3;
 
@@ -57,12 +61,24 @@ public class DltRetryService {
             return;
         }
         
-        analysisRequestPublisher.publishAndWait(analysisId);
+        AnalysisTarget target = resolveTarget(failedRequest);
+        analysisRequestPublisher.publishAndWaitForAck(analysisId, target);
 
         log.info("DLT 메시지 재전송 성공: analysisId={}", analysisId);
 
         failedRequest.incrementRetryCount();
         failedRequest.markAsProcessed();
         failedAnalysisRequestRepository.save(failedRequest);
+    }
+
+    private AnalysisTarget resolveTarget(FailedAnalysisRequest failedRequest) {
+        try {
+            AnalysisEvent event = objectMapper.readValue(failedRequest.getOriginalMessage(), AnalysisEvent.class);
+            return event.resolvedTarget();
+        } catch (Exception e) {
+            log.warn("실패 메시지에서 분석 대상을 읽지 못해 ALL로 재시도합니다. analysisId={}",
+                    failedRequest.getAnalysisId(), e);
+            return AnalysisTarget.ALL;
+        }
     }
 }

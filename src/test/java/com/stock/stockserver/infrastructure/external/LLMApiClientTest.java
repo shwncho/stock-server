@@ -2,6 +2,7 @@ package com.stock.stockserver.infrastructure.external;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.RecommendationStatus;
 import com.stock.stockserver.dto.LLMAnalysisResponseDto;
 import com.stock.stockserver.dto.StockDataDto;
@@ -52,6 +53,8 @@ class LLMApiClientTest {
         ReflectionTestUtils.setField(llmApiClient, "provider", "gpt");
 
         testStockData = new StockDataDto(
+                AnalysisTarget.DOMESTIC,
+                "KRX",
                 "005930",
                 "Samsung",
                 new BigDecimal("75000"),

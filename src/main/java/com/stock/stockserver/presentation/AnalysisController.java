@@ -2,6 +2,7 @@ package com.stock.stockserver.presentation;
 
 import com.stock.stockserver.application.AnalysisRequestPublisher;
 import com.stock.stockserver.application.StockAnalysisService;
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.dto.AnalysisResultDto;
@@ -29,9 +30,25 @@ public class AnalysisController {
      * 분석 실행
      */
     @PostMapping("/run")
-    public ResponseEntity<PostAnalysisDto> runAnalysis() {
+    public ResponseEntity<PostAnalysisDto> runAnalysis(
+            @RequestParam(defaultValue = "ALL") AnalysisTarget target
+    ) {
+        return publishAnalysis(target);
+    }
+
+    @PostMapping("/run/domestic")
+    public ResponseEntity<PostAnalysisDto> runDomesticAnalysis() {
+        return publishAnalysis(AnalysisTarget.DOMESTIC);
+    }
+
+    @PostMapping("/run/overseas")
+    public ResponseEntity<PostAnalysisDto> runOverseasAnalysis() {
+        return publishAnalysis(AnalysisTarget.OVERSEAS);
+    }
+
+    private ResponseEntity<PostAnalysisDto> publishAnalysis(AnalysisTarget target) {
         String analysisId = UUID.randomUUID().toString();
-        analysisRequestPublisher.publish(analysisId);
+        analysisRequestPublisher.publish(analysisId, target);
 
         return ResponseEntity.ok(
                 new PostAnalysisDto(
@@ -39,7 +56,6 @@ public class AnalysisController {
                     AnalysisStatus.RUNNING
                 )
         );
-
     }
 
     @GetMapping("/status/{analysisId}")

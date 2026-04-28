@@ -1,6 +1,7 @@
 package com.stock.stockserver.application;
 
 import com.stock.stockserver.domain.AnalysisStatus;
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.entity.LLMAnalysisResult;
 import com.stock.stockserver.domain.repository.AnalysisJobStore;
@@ -34,8 +35,12 @@ public class StockAnalysisService {
     private final Executor llmApiExecutor;
 
     public void runFullAnalysis(String analysisId) {
+        runFullAnalysis(analysisId, AnalysisTarget.ALL);
+    }
+
+    public void runFullAnalysis(String analysisId, AnalysisTarget target) {
         try {
-            List<LLMAnalysisResult> results = runFullAnalysisInternal(analysisId);
+            List<LLMAnalysisResult> results = runFullAnalysisInternal(analysisId, target);
             jobStore.save(AnalysisJob.builder()
                     .analysisId(analysisId)
                     .status(AnalysisStatus.DONE)
@@ -53,17 +58,22 @@ public class StockAnalysisService {
     }
 
     public List<LLMAnalysisResult> runFullAnalysisInternal(String analysisId) {
+        return runFullAnalysisInternal(analysisId, AnalysisTarget.ALL);
+    }
+
+    public List<LLMAnalysisResult> runFullAnalysisInternal(String analysisId, AnalysisTarget target) {
         log.info("\n");
         log.info("=====================================");
-        log.info("  KIS Stock Analysis with LLM (병렬)");
+        log.info("  KIS Stock Analysis with LLM (target={}, 병렬)", target);
         log.info("=====================================\n");
 
-        List<StockDataDto> stockDataList = dataCollectionService.collectStockData();
+        List<StockDataDto> stockDataList = dataCollectionService.collectStockData(target);
 
         List<CompletableFuture<LLMAnalysisResult>> futures = stockDataList.stream()
                 .map(stockData -> CompletableFuture.supplyAsync(() -> {
                     try {
-                        log.info("LLM 분석 요청: {} ({})", stockData.stockName(), stockData.stockCode());
+                        log.info("LLM 분석 요청: target={}, exchange={}, stockName={}, stockCode={}",
+                                stockData.target(), stockData.exchangeCode(), stockData.stockName(), stockData.stockCode());
 
                         LLMAnalysisResponseDto analysisResponse = llmApiClient.analyzeStock(stockData);
 
@@ -71,17 +81,20 @@ public class StockAnalysisService {
                             LLMAnalysisResult result = LLMAnalysisResult.builder()
                                     .stockCode(stockData.stockCode())
                                     .stockName(stockData.stockName())
+                                    .target(stockData.target())
                                     .analysisDate(LocalDate.now())
                                     .llmAnalysis(removeJsonBlock(analysisResponse.fullAnalysis()))
                                     .recommendation(analysisResponse.recommendation())
                                     .analysisId(analysisId)
                                     .build();
-                            log.info("분석 완료: {} ", stockData.stockCode());
+                            log.info("분석 완료: target={}, exchange={}, stockName={}, stockCode={}",
+                                    stockData.target(), stockData.exchangeCode(), stockData.stockName(), stockData.stockCode());
 
                             return result;
                         }
                     } catch (Exception e) {
-                        log.error("LLM 분석 실패: {}", stockData.stockCode(), e);
+                        log.error("LLM 분석 실패: target={}, exchange={}, stockName={}, stockCode={}",
+                                stockData.target(), stockData.exchangeCode(), stockData.stockName(), stockData.stockCode(), e);
                     }
                     return null;
                 }, llmApiExecutor))
@@ -135,7 +148,7 @@ public class StockAnalysisService {
     }
 
     public List<AnalysisResultDto> getLatestAnalysis() {
-        List<LLMAnalysisResult> results = analysisResultRepository.findTop10ByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
+        List<LLMAnalysisResult> results = analysisResultRepository.findTop20ByAnalysisDateOrderByCreatedAtDesc(LocalDate.now());
         return results.stream()
                 .map(AnalysisResultDto::from)
                 .toList();

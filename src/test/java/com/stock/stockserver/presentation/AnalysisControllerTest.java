@@ -2,6 +2,7 @@ package com.stock.stockserver.presentation;
 
 import com.stock.stockserver.application.AnalysisRequestPublisher;
 import com.stock.stockserver.application.StockAnalysisService;
+import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.domain.entity.AnalysisJob;
 import com.stock.stockserver.domain.AnalysisStatus;
 import com.stock.stockserver.dto.AnalysisResultDto;
@@ -39,10 +40,46 @@ class AnalysisControllerTest {
     @Test
     @DisplayName("runAnalysis - 분석 요청 시 200 응답")
     void runAnalysis_success() {
-        ResponseEntity<?> response = analysisController.runAnalysis();
+        ResponseEntity<?> response = analysisController.runAnalysis(AnalysisTarget.ALL);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(analysisRequestPublisher, times(1)).publish(anyString());
+        verify(analysisRequestPublisher, times(1)).publish(anyString(), eq(AnalysisTarget.ALL));
+    }
+
+    @Test
+    @DisplayName("runAnalysis - 국내 분석 요청")
+    void runAnalysis_domestic() {
+        ResponseEntity<?> response = analysisController.runAnalysis(AnalysisTarget.DOMESTIC);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(analysisRequestPublisher).publish(anyString(), eq(AnalysisTarget.DOMESTIC));
+    }
+
+    @Test
+    @DisplayName("runAnalysis - 해외 분석 요청")
+    void runAnalysis_overseas() {
+        ResponseEntity<?> response = analysisController.runAnalysis(AnalysisTarget.OVERSEAS);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(analysisRequestPublisher).publish(anyString(), eq(AnalysisTarget.OVERSEAS));
+    }
+
+    @Test
+    @DisplayName("runDomesticAnalysis - 국내 전용 API")
+    void runDomesticAnalysis_success() {
+        ResponseEntity<?> response = analysisController.runDomesticAnalysis();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(analysisRequestPublisher).publish(anyString(), eq(AnalysisTarget.DOMESTIC));
+    }
+
+    @Test
+    @DisplayName("runOverseasAnalysis - 해외 전용 API")
+    void runOverseasAnalysis_success() {
+        ResponseEntity<?> response = analysisController.runOverseasAnalysis();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(analysisRequestPublisher).publish(anyString(), eq(AnalysisTarget.OVERSEAS));
     }
 
     @Test
@@ -110,6 +147,7 @@ class AnalysisControllerTest {
     @DisplayName("getLatestAnalysis - 최근 분석 결과 조회")
     void getLatestAnalysis_success() {
         AnalysisResultDto dto = new AnalysisResultDto(
+                AnalysisTarget.DOMESTIC,
                 "005930", 
                 "Samsung", 
                 null, 

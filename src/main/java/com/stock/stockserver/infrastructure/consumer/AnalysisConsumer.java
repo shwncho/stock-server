@@ -26,10 +26,11 @@ public class AnalysisConsumer {
             AnalysisEvent event = objectMapper.readValue(message, AnalysisEvent.class);
             String analysisId = event.analysisId();
 
-            log.info("Received analysis request from Kafka: analysisId={}", analysisId);
+            log.info("Received analysis request from Kafka: analysisId={}, target={}",
+                    analysisId, event.resolvedTarget());
 
             analysisService.saveJob(analysisId);
-            analysisService.runFullAnalysis(analysisId);
+            analysisService.runFullAnalysis(analysisId, event.resolvedTarget());
             ack.acknowledge();
             log.info("Analysis completed and ACK'd: analysisId={}", analysisId);
         } catch (Exception e) {
