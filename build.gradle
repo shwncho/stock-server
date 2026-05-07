@@ -41,8 +41,7 @@ implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     // JSON
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     
-    // Retry
-    implementation 'org.springframework.retry:spring-retry:2.0.4'
+    // Resilience
     implementation 'io.github.resilience4j:resilience4j-ratelimiter:2.4.0'
     implementation 'io.github.resilience4j:resilience4j-retry:2.4.0'
 
