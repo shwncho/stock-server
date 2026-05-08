@@ -3,6 +3,8 @@ package com.stock.stockserver.infrastructure.strategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.domain.AnalysisTarget;
 import com.stock.stockserver.dto.StockDataDto;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -12,12 +14,20 @@ import java.util.Map;
 public class LLMAnalysisPromptBuilder {
 
     private final ObjectMapper objectMapper;
+    private final Environment environment;
 
-    public LLMAnalysisPromptBuilder(ObjectMapper objectMapper) {
+    @Value("${llm.provider}")
+    private String provider;
+
+    public LLMAnalysisPromptBuilder(ObjectMapper objectMapper, Environment environment) {
         this.objectMapper = objectMapper;
+        this.environment = environment;
     }
 
     public String build(StockDataDto stockData) {
+        int maxTokens = resolveMaxTokens();
+        int koreanCharBudget = (int) (maxTokens * 0.6);
+
         boolean isOverseas = stockData.target() == AnalysisTarget.OVERSEAS;
         String marketLabel = isOverseas
                 ? "해외(" + stockData.exchangeCode() + ") 주식 시장"
@@ -70,6 +80,13 @@ public class LLMAnalysisPromptBuilder {
                 - 모든 가격/금액 표기는 %s 단위로 작성하고, 다른 통화로 환산하지 마세요.
 
                 -----------------------
+                [응답 길이 제약]
+
+                - 전체 응답은 한글 기준 약 %d자 이내로 작성하세요.
+                - 분석 본문은 핵심만 간결하게 작성하고, 불필요한 반복/장황한 설명은 피하세요.
+                - 마지막 줄 JSON 객체는 절대 생략되어서는 안 됩니다. 본문이 길어질 것 같으면 본문을 줄여서라도 JSON을 반드시 포함하세요.
+
+                -----------------------
                 [JSON 출력 규칙]
 
                 - 반드시 응답의 가장 마지막 줄에 순수 JSON 객체만 출력하세요.
@@ -103,8 +120,14 @@ public class LLMAnalysisPromptBuilder {
                 stockData.priceLow52Week().doubleValue(),
                 calculatePrice52WeekPercentage(stockData),
                 formatDailyPrices(stockData.dailyPricesJson()),
-                currencyUnit
+                currencyUnit,
+                koreanCharBudget
         );
+    }
+
+    private int resolveMaxTokens() {
+        String key = "llm." + provider.toLowerCase() + ".max-tokens";
+        return Integer.parseInt(environment.getProperty(key, "2000"));
     }
 
     private double calculatePrice52WeekPercentage(StockDataDto stockData) {

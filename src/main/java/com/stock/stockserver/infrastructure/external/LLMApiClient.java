@@ -43,6 +43,9 @@ public class LLMApiClient {
         // 1차: Primary LLM 시도
         try {
             return executeAnalysis(primaryStrategy, stockData);
+        } catch (LLMTruncatedException e) {
+            log.error("LLM 응답이 max_tokens로 잘렸습니다 — fallback 생략하고 DLT로 전파: {}", stockData.stockCode());
+            throw e;
         } catch (Exception e) {
             log.warn("Primary LLM 실패, fallback 시도: {} - {}", stockData.stockCode(), e.getMessage());
 

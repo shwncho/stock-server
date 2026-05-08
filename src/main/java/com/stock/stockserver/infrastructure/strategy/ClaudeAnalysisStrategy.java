@@ -3,6 +3,7 @@ package com.stock.stockserver.infrastructure.strategy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.dto.StockDataDto;
+import com.stock.stockserver.infrastructure.external.LLMTruncatedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,6 +75,8 @@ public class ClaudeAnalysisStrategy implements LLMAnalysisStrategy {
 
             return parseResponse(responseBody, stockData);
 
+        } catch (LLMTruncatedException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Claude API 호출 실패: {}", stockData.stockCode(), e);
             throw new RuntimeException("Claude API 호출 실패: " + e.getMessage(), e);
@@ -82,7 +85,13 @@ public class ClaudeAnalysisStrategy implements LLMAnalysisStrategy {
 
     private String parseResponse(String responseBody, StockDataDto stockData) throws Exception {
         JsonNode root = objectMapper.readTree(responseBody);
-        
+
+        String stopReason = root.path("stop_reason").asText("");
+        if ("max_tokens".equals(stopReason)) {
+            log.warn("Claude 응답이 max_tokens로 잘렸습니다: {} (stop_reason=max_tokens)", stockData.stockCode());
+            throw new LLMTruncatedException("claude", stopReason);
+        }
+
         JsonNode content = root.get("content");
         if (content == null || !content.isArray()) {
             throw new IllegalStateException("Claude response에 content가 없습니다.");

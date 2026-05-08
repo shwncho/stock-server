@@ -2,6 +2,7 @@ package com.stock.stockserver.infrastructure.strategy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stock.stockserver.dto.StockDataDto;
+import com.stock.stockserver.infrastructure.external.LLMTruncatedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,13 +75,22 @@ public class GPTAnalysisStrategy implements LLMAnalysisStrategy {
             List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
 
             if (choices != null && !choices.isEmpty()) {
-                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                Map<String, Object> choice = choices.get(0);
+                String finishReason = (String) choice.get("finish_reason");
+                if ("length".equals(finishReason)) {
+                    log.warn("GPT 응답이 max_tokens로 잘렸습니다: {} (finish_reason=length)", stockData.stockCode());
+                    throw new LLMTruncatedException("gpt", finishReason);
+                }
+
+                Map<String, Object> message = (Map<String, Object>) choice.get("message");
                 String analysis = (String) message.get("content");
                 log.info("GPT 분석 완료: {}", stockData.stockCode());
                 return analysis;
             }
             return null;
 
+        } catch (LLMTruncatedException e) {
+            throw e;
         } catch (Exception e) {
             log.error("GPT API 호출 실패: {}", stockData.stockCode(), e);
             return null;

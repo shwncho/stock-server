@@ -422,7 +422,7 @@ String responseBody = Retry.decorateSupplier(kisApiRetry,           // 바깥
        └─ 결과 반환
 ```
 
-핵심: **재시도가 일어날 때마다 RateLimiter를 다시 통과**하여 permit이 재차감됩니다. 만약 순서를 뒤집으면 RateLimiter는 1번만 통과되고 재시도 폭주가 한도를 그대로 부수게 되므로, **Retry(바깥) → RateLimiter(안)** 가 정답입니다.
+핵심: **재시도가 일어날 때마다 RateLimiter를 다시 통과**하여 permit이 재차감됩니다. 만약 순서를 뒤집으면 RateLimiter는 1번만 통과되고 재시도 폭주가 한도를 그대로 부수게 되므로, **Retry(바깥) → RateLimiter(안)** 으로 작성
 
 #### 설정 외부화 + 관측
 
