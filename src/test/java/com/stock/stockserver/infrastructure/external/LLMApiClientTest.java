@@ -155,7 +155,7 @@ class LLMApiClientTest {
     void analyzeStock_allFailed() throws Exception {
         when(strategies.get("gptStrategy")).thenReturn(mockGptStrategy);
         when(strategies.get("claudeStrategy")).thenReturn(mockClaudeStrategy);
-        
+
         when(mockGptStrategy.analyze(any(StockDataDto.class))).thenThrow(new RuntimeException("GPT Error"));
         when(mockClaudeStrategy.analyze(any(StockDataDto.class))).thenThrow(new RuntimeException("Claude Error"));
 
@@ -165,5 +165,66 @@ class LLMApiClientTest {
         assertEquals(RecommendationStatus.ERROR, result.recommendation());
         assertTrue(result.fullAnalysis().contains("GPT Error"));
         assertTrue(result.fullAnalysis().contains("Claude Error"));
+    }
+
+    @Test
+    @DisplayName("analyzeStock - 응답이 토큰 한도 내 완료된 경우 fallback 없이 정상 처리")
+    void analyzeStock_withinTokenLimit_success() throws Exception {
+        when(strategies.get("gptStrategy")).thenReturn(mockGptStrategy);
+        when(strategies.get("claudeStrategy")).thenReturn(mockClaudeStrategy);
+
+        // 잘림 없이 본문 + JSON 꼬리가 모두 포함된 정상 응답
+        when(mockGptStrategy.analyze(any(StockDataDto.class))).thenReturn(
+                "정상적으로 마무리된 분석 본문. {\"recommendation\":\"BUY\",\"confidence\":0.9,\"summary\":\"강세 흐름\"}"
+        );
+
+        JsonNode recommendationNode = mock(JsonNode.class);
+        when(recommendationNode.asText("")).thenReturn("BUY");
+
+        JsonNode confidenceNode = mock(JsonNode.class);
+        when(confidenceNode.asDouble(0.0)).thenReturn(0.9);
+
+        JsonNode summaryNode = mock(JsonNode.class);
+        when(summaryNode.asText("")).thenReturn("강세 흐름");
+
+        JsonNode mockJsonNode = mock(JsonNode.class);
+        when(mockJsonNode.path("recommendation")).thenReturn(recommendationNode);
+        when(mockJsonNode.path("confidence")).thenReturn(confidenceNode);
+        when(mockJsonNode.path("summary")).thenReturn(summaryNode);
+
+        when(objectMapper.readTree(anyString())).thenReturn(mockJsonNode);
+
+        LLMAnalysisResponseDto result = llmApiClient.analyzeStock(testStockData);
+
+        assertNotNull(result);
+        assertEquals(RecommendationStatus.BUY, result.recommendation());
+        assertEquals(0.9, result.confidence());
+        assertEquals("강세 흐름", result.summary());
+
+        // 잘림 없으면 fallback(Claude) 절대 호출되지 않아야 함
+        verify(mockClaudeStrategy, never()).analyze(any(StockDataDto.class));
+    }
+
+    @Test
+    @DisplayName("analyzeStock - 응답이 토큰 한도 초과로 잘린 경우 fallback 우회하고 LLMTruncatedException 전파")
+    void analyzeStock_truncated_skipsFallbackAndPropagates() {
+        when(strategies.get("gptStrategy")).thenReturn(mockGptStrategy);
+        when(strategies.get("claudeStrategy")).thenReturn(mockClaudeStrategy);
+
+        // GPT가 finish_reason=length 감지하여 LLMTruncatedException throw
+        when(mockGptStrategy.analyze(any(StockDataDto.class)))
+                .thenThrow(new LLMTruncatedException("gpt", "length"));
+
+        // 잘림 예외는 ERROR DTO로 변환되지 않고 그대로 전파되어 Kafka consumer까지 도달해야 함
+        LLMTruncatedException ex = assertThrows(
+                LLMTruncatedException.class,
+                () -> llmApiClient.analyzeStock(testStockData)
+        );
+
+        assertEquals("gpt", ex.getProvider());
+        assertEquals("length", ex.getReason());
+
+        // 같은 프롬프트로 fallback 호출하면 같은 잘림이 반복됨 — 비용 낭비 방지를 위해 fallback 우회 확인
+        verify(mockClaudeStrategy, never()).analyze(any(StockDataDto.class));
     }
 }
